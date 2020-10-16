@@ -77,14 +77,29 @@ function tool_dataprivacy_myprofile_navigation(tree $tree, $user, $iscurrentuser
 
         // Check if the user has an ongoing data deletion request.
         $hasdeleterequest = \tool_dataprivacy\api::has_ongoing_request($user->id, \tool_dataprivacy\api::DATAREQUEST_TYPE_DELETE);
-        // Show data deletion link only if the user doesn't have an ongoing data deletion request.
-        if (!$hasdeleterequest) {
+        // Show data deletion link only if the user doesn't have an ongoing data deletion request and has permission
+        // to create data deletion request.
+        if (!$hasdeleterequest && \tool_dataprivacy\api::can_create_data_deletion_request_for_self()) {
             $deleteparams = ['type' => \tool_dataprivacy\api::DATAREQUEST_TYPE_DELETE];
             $deleteurl = new moodle_url('/admin/tool/dataprivacy/createdatarequest.php', $deleteparams);
             $deletenode = new core_user\output\myprofile\node('privacyandpolicies', 'requestdatadeletion',
                 get_string('deletemyaccount', 'tool_dataprivacy'), null, $deleteurl);
             $category->add_node($deletenode);
         }
+    }
+
+    // A returned 0 means that the setting was set and disabled, false means that there is no value for the provided setting.
+    $showsummary = get_config('tool_dataprivacy', 'showdataretentionsummary');
+    if ($showsummary === false) {
+        // This means that no value is stored in db. We use the default value in this case.
+        $showsummary = true;
+    }
+
+    if ($showsummary && $iscurrentuser) {
+        $summaryurl = new moodle_url('/admin/tool/dataprivacy/summary.php');
+        $summarynode = new core_user\output\myprofile\node('privacyandpolicies', 'retentionsummary',
+            get_string('dataretentionsummary', 'tool_dataprivacy'), null, $summaryurl);
+        $category->add_node($summarynode);
     }
 
     // Add the Privacy category to the tree if it's not empty and it doesn't exist.
@@ -97,6 +112,29 @@ function tool_dataprivacy_myprofile_navigation(tree $tree, $user, $iscurrentuser
     }
 
     return false;
+}
+
+/**
+ * Callback to add footer elements.
+ *
+ * @return string HTML footer content
+ */
+function tool_dataprivacy_standard_footer_html() {
+    $output = '';
+
+    // A returned 0 means that the setting was set and disabled, false means that there is no value for the provided setting.
+    $showsummary = get_config('tool_dataprivacy', 'showdataretentionsummary');
+    if ($showsummary === false) {
+        // This means that no value is stored in db. We use the default value in this case.
+        $showsummary = true;
+    }
+
+    if ($showsummary) {
+        $url = new moodle_url('/admin/tool/dataprivacy/summary.php');
+        $output = html_writer::link($url, get_string('dataretentionsummary', 'tool_dataprivacy'));
+        $output = html_writer::div($output, 'tool_dataprivacy');
+    }
+    return $output;
 }
 
 /**

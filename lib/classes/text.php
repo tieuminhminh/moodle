@@ -565,8 +565,12 @@ class core_text {
         static $callback2 = null ;
 
         if (!$callback1 or !$callback2) {
-            $callback1 = create_function('$matches', 'return core_text::code2utf8(hexdec($matches[1]));');
-            $callback2 = create_function('$matches', 'return core_text::code2utf8($matches[1]);');
+            $callback1 = function($matches) {
+                return core_text::code2utf8(hexdec($matches[1]));
+            };
+            $callback2 = function($matches) {
+                return core_text::code2utf8($matches[1]);
+            };
         }
 
         $result = (string)$str;
@@ -605,7 +609,9 @@ class core_text {
 
         if ($dec) {
             if (!$callback) {
-                $callback = create_function('$matches', 'return \'&#\'.(hexdec($matches[1])).\';\';');
+                $callback = function($matches) {
+                    return '&#' . hexdec($matches[1]) . ';';
+                };
             }
             $result = preg_replace_callback('/&#x([0-9a-f]+);/i', $callback, $result);
         }
@@ -637,7 +643,7 @@ class core_text {
      *
      * @param string $value Input string
      * @return string Cleaned string value
-     * @since Moodle 3.3.6
+     * @since Moodle 3.5
      */
     public static function remove_unicode_non_characters($value) {
         // Set up list of all Unicode non-characters for fast replacing.
@@ -715,19 +721,19 @@ class core_text {
         if ($utf8char == '') {
             return 0;
         }
-        $ord0 = ord($utf8char{0});
+        $ord0 = ord($utf8char[0]);
         if ($ord0 >= 0 && $ord0 <= 127) {
             return $ord0;
         }
-        $ord1 = ord($utf8char{1});
+        $ord1 = ord($utf8char[1]);
         if ($ord0 >= 192 && $ord0 <= 223) {
             return ($ord0 - 192) * 64 + ($ord1 - 128);
         }
-        $ord2 = ord($utf8char{2});
+        $ord2 = ord($utf8char[2]);
         if ($ord0 >= 224 && $ord0 <= 239) {
             return ($ord0 - 224) * 4096 + ($ord1 - 128) * 64 + ($ord2 - 128);
         }
-        $ord3 = ord($utf8char{3});
+        $ord3 = ord($utf8char[3]);
         if ($ord0 >= 240 && $ord0 <= 247) {
             return ($ord0 - 240) * 262144 + ($ord1 - 128 )* 4096 + ($ord2 - 128) * 64 + ($ord3 - 128);
         }

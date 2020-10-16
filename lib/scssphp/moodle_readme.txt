@@ -1,15 +1,15 @@
 scssphp
 -------
 
-Import git ref: 62536ec1b32b63499684a91d67e8b6d90508bad2
-                (MOODLE_32_STABLE)
-
-Downloaded from: https://github.com/moodlehq/scssphp
-    Original at: https://github.com/leafo/scssphp
+Downloaded from: https://github.com/scssphp/scssphp
 
 Import procedure:
 
-- Copy all the files from the folder 'src' this directory.
+- Delete everything from this directory except moodle_readme.txt (this file).
+- Copy all the files from the folder 'src' to this directory.
 - Copy the license file from the project root.
+- Review the local changes defined below, if any. Reapply
+  them if needed. If already available upstream, please remove
+  them from the list.
 
 Licensed under MIT, Copyright (c) 2015 Leaf Corcoran.

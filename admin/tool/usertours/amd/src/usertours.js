@@ -67,13 +67,21 @@ function(ajax, BootstrapTour, $, templates, str, log, notification) {
                     }
                 ])[0],
                 templates.render('tool_usertours/tourstep', {})
-            ).then(function(response, template) {
+            )
+            .then(function(response, template) {
+                // If we don't have any tour config (because it doesn't need showing for the current user), return early.
+                if (!response.hasOwnProperty('tourconfig')) {
+                    return;
+                }
+
                 return usertours.startBootstrapTour(tourId, template[0], response.tourconfig);
-            }).always(function() {
+            })
+            .always(function() {
                 M.util.js_complete('admin_usertour_fetchTour' + tourId);
 
                 return;
-            }).fail(notification.exception);
+            })
+            .fail(notification.exception);
         },
 
         /**
@@ -82,26 +90,33 @@ function(ajax, BootstrapTour, $, templates, str, log, notification) {
          * @method  addResetLink
          */
         addResetLink: function() {
+            var ele;
             M.util.js_pending('admin_usertour_addResetLink');
-            str.get_string('resettouronpage', 'tool_usertours')
-                .done(function(s) {
-                    // Grab the last item in the page of these.
-                    $('footer, .logininfo')
-                    .last()
-                    .append(
-                        '<div class="usertour">' +
-                            '<a href="#" data-action="tool_usertours/resetpagetour">' +
-                                s +
-                            '</a>' +
-                        '</div>'
-                    );
-                })
-                .always(function() {
-                    M.util.js_complete('admin_usertour_addResetLink');
 
-                    return;
-                })
-                .fail();
+            // Append the link to the most suitable place on the page
+            // with fallback to legacy selectors and finally the body
+            // if there is no better place.
+            if ($('.tool_usertours-resettourcontainer').length) {
+                ele = $('.tool_usertours-resettourcontainer');
+            } else if ($('.logininfo').length) {
+                ele = $('.logininfo');
+            } else if ($('footer').length) {
+                ele = $('footer');
+            } else {
+                ele = $('body');
+            }
+            templates.render('tool_usertours/resettour', {})
+            .then(function(html, js) {
+                templates.appendNodeContents(ele, html, js);
+
+                return;
+            })
+            .always(function() {
+                M.util.js_complete('admin_usertour_addResetLink');
+
+                return;
+            })
+            .fail();
         },
 
         /**
@@ -226,6 +241,7 @@ function(ajax, BootstrapTour, $, templates, str, log, notification) {
                 if (response.startTour) {
                     usertours.fetchTour(response.startTour);
                 }
+                return;
             }).fail(notification.exception);
         }
     };

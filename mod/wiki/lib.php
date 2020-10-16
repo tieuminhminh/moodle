@@ -230,6 +230,12 @@ function wiki_reset_userdata($data) {
             }
         }
     }
+
+    // Any changes to the list of dates that needs to be rolled should be same during course restore and course reset.
+    // See MDL-9367.
+    shift_course_mod_dates('wiki', array('editbegin', 'editend'), $data->timeshift, $data->courseid);
+    $status[] = array('component' => $componentstr, 'item' => get_string('datechanged'), 'error' => false);
+
     return $status;
 }
 
@@ -341,20 +347,6 @@ function wiki_print_recent_activity($course, $viewfullnames, $timestart) {
 
     return true; //  True if anything was printed, otherwise false
 }
-/**
- * Function to be run periodically according to the moodle cron
- * This function searches for things that need to be done, such
- * as sending out mail, toggling flags etc ...
- *
- * @uses $CFG
- * @return boolean
- * @todo Finish documenting this function
- **/
-function wiki_cron() {
-    global $CFG;
-
-    return true;
-}
 
 /**
  * Must return an array of grades for a given instance of this module,
@@ -374,25 +366,11 @@ function wiki_grades($wikiid) {
 }
 
 /**
- * This function returns if a scale is being used by one wiki
- * it it has support for grading and scales. Commented code should be
- * modified if necessary. See forum, glossary or journal modules
- * as reference.
- *
- * @param int $wikiid ID of an instance of this module
- * @return mixed
- * @todo Finish documenting this function
- **/
-function wiki_scale_used($wikiid, $scaleid) {
-    $return = false;
-
-    //$rec = get_record("wiki","id","$wikiid","scale","-$scaleid");
-    //
-    //if (!empty($rec)  && !empty($scaleid)) {
-    //    $return = true;
-    //}
-
-    return $return;
+ * @deprecated since Moodle 3.8
+ */
+function wiki_scale_used() {
+    throw new coding_exception('wiki_scale_used() can not be used anymore. Plugins can implement ' .
+        '<modname>_scale_used_anywhere, all implementations of <modname>_scale_used are now ignored');
 }
 
 /**
@@ -478,7 +456,7 @@ function wiki_search_form($cm, $search = '', $subwiki = null) {
         $output .= '<input name="subwikiid" type="hidden" value="' . $subwiki->id . '" />';
     }
     $output .= '<input name="searchwikicontent" type="hidden" value="1" />';
-    $output .= '<input value="' . get_string('searchwikis', 'wiki') . '" type="submit" />';
+    $output .= '<input value="' . get_string('searchwikis', 'wiki') . '" class="btn btn-secondary" type="submit" />';
     $output .= '</fieldset>';
     $output .= '</form>';
     $output .= '</div>';
@@ -809,15 +787,28 @@ function mod_wiki_get_fontawesome_icon_map() {
  *
  * @param calendar_event $event
  * @param \core_calendar\action_factory $factory
+ * @param int $userid User id to use for all capability checks, etc. Set to 0 for current user (default).
  * @return \core_calendar\local\event\entities\action_interface|null
  */
 function mod_wiki_core_calendar_provide_event_action(calendar_event $event,
-                                                    \core_calendar\action_factory $factory) {
-    $cm = get_fast_modinfo($event->courseid)->instances['wiki'][$event->instance];
+                                                    \core_calendar\action_factory $factory,
+                                                    int $userid = 0) {
+    global $USER;
+
+    if (!$userid) {
+        $userid = $USER->id;
+    }
+
+    $cm = get_fast_modinfo($event->courseid, $userid)->instances['wiki'][$event->instance];
+
+    if (!$cm->uservisible) {
+        // The module is not visible to the user for any reason.
+        return null;
+    }
 
     $completion = new \completion_info($cm->get_course());
 
-    $completiondata = $completion->get_data($cm, false);
+    $completiondata = $completion->get_data($cm, false, $userid);
 
     if ($completiondata->completionstate != COMPLETION_INCOMPLETE) {
         return null;

@@ -118,7 +118,6 @@ function xmldb_main_install() {
     $defaults = array(
         'rolesactive'           => '0', // marks fully set up system
         'auth'                  => 'email',
-        'auth_pop3mailbox'      => 'INBOX',
         'enrol_plugins_enabled' => 'manual,guest,self,cohort',
         'theme'                 => theme_config::DEFAULT_THEME,
         'filter_multilang_converted' => 1,
@@ -132,7 +131,6 @@ function xmldb_main_install() {
         'texteditors'           => 'atto,tinymce,textarea',
         'antiviruses'           => '',
         'media_plugins_sortorder' => 'videojs,youtube,swf',
-        'upgrade_minmaxgradestepignored' => 1, // New installs should not run this upgrade step.
         'upgrade_extracreditweightsstepignored' => 1, // New installs should not run this upgrade step.
         'upgrade_calculatedgradeitemsignored' => 1, // New installs should not run this upgrade step.
         'upgrade_letterboundarycourses' => 1, // New installs should not run this upgrade step.
@@ -268,8 +266,8 @@ function xmldb_main_install() {
 
     // Default allow role matrices.
     foreach ($DB->get_records('role') as $role) {
-        foreach (array('assign', 'override', 'switch') as $type) {
-            $function = 'allow_'.$type;
+        foreach (array('assign', 'override', 'switch', 'view') as $type) {
+            $function = "core_role_set_{$type}_allowed";
             $allows = get_default_role_archetype_allows($type, $role->archetype);
             foreach ($allows as $allowid) {
                 $function($role->id, $allowid);
@@ -286,9 +284,10 @@ function xmldb_main_install() {
     set_role_contextlevels($guestrole,          get_default_contextlevels('guest'));
     set_role_contextlevels($userrole,           get_default_contextlevels('user'));
 
-    // Init theme and JS revisions
+    // Init theme, JS and template revisions.
     set_config('themerev', time());
     set_config('jsrev', time());
+    set_config('templaterev', time());
 
     // No admin setting for this any more, GD is now required, remove in Moodle 2.6.
     set_config('gdversion', 2);
@@ -321,4 +320,7 @@ function xmldb_main_install() {
     require_once($CFG->libdir . '/db/upgradelib.php');
     make_default_scale();
     make_competence_scale();
+
+    require_once($CFG->dirroot . '/badges/upgradelib.php'); // Core install and upgrade related functions only for badges.
+    badges_install_default_backpacks();
 }

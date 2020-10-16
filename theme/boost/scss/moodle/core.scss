@@ -1,9 +1,19 @@
 /* core.less */
 
-#region-main > .card {
+// When we upgrade boostrap to v4 release, we will need to change this to be used by the text-white class.
+// Because a primary colour that is both AA accessible on grey (footer) and white is not possible, we always
+// want white default colour.
+$bg-inverse-link-color: #fff !default;
+
+#region-main {
     overflow-x: auto;
     overflow-y: visible;
-    min-height: 45rem;
+    border: $card-border-width solid $card-border-color;
+    @if $enable-rounded {
+        @include border-radius($card-border-radius);
+    }
+    padding: $card-spacer-x;
+    background-color: $body-bg;
 }
 
 .context-header-settings-menu,
@@ -141,6 +151,13 @@ a.autolink.glossary:hover {
     cursor: pointer;
 }
 
+.pagelayout-mydashboard #region-main {
+    border: 0;
+    padding: 0;
+    background-color: transparent;
+    margin-top: -1px;
+}
+
 .collapsibleregioncaption img {
     vertical-align: middle;
 }
@@ -235,12 +252,7 @@ img.resize {
     white-space: nowrap;
 }
 
-.action-menu .userpicture {
-    margin-left: 1rem;
-}
-
-.block img.resize,
-.breadcrumb img.resize {
+.block img.resize {
     height: 0.9em;
     width: 0.8em;
 }
@@ -286,17 +298,18 @@ form.popupform div {
     overflow: auto;
 }
 
+// Minimum height required for a menu in a table inside a scrollable div.
+// Position required for table sizing inside a flex container.
 .no-overflow > .generaltable {
+    position: relative;
     margin-bottom: 0;
+    min-height: 10em;
 }
 // Accessibility features
 
 // Accessibility: text 'seen' by screen readers but not visual users.
 .accesshide {
-    position: absolute;
-    left: -10000px;
-    font-weight: normal;
-    font-size: 1em;
+    @include sr-only();
 }
 
 span.hide,
@@ -344,9 +357,6 @@ a.skip:active {
     margin-left: 43px;
 }
 // Group
-#page-group-index #groupeditform {
-    text-align: center;
-}
 
 #doc-contents h1 {
     margin: 1em 0 0 0;
@@ -1090,81 +1100,6 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
     text-align: center;
 }
 
-.initialbar {
-
-    overflow: auto;
-
-    .initialbarlabel {
-        display: inline-block;
-        width: 6em;
-        float: left;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .initialbarall {
-        float: left;
-        width: 4em;
-        margin-bottom: 2px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .initialbargroups {
-        float: left;
-    }
-
-    .initialbargroup {
-        float: left;
-        display: inline-block;
-        white-space: nowrap;
-        margin: 0;
-        padding: 0;
-
-        li {
-            float: left;
-            list-style: none;
-        }
-    }
-
-    .letter {
-        display: inline-block;
-        height: 1.5em;
-        min-width: 1.5em;
-        text-align: center;
-
-        color: $pagination-color;
-        border-width: $pagination-border-width;
-        border-color: $pagination-border-color;
-        border-style: solid;
-        background-color: $pagination-bg;
-    }
-    .letter:hover {
-        color: $pagination-hover-color;
-        border-color: $pagination-hover-border;
-        background-color: $pagination-hover-bg;
-    }
-
-    .letter.active {
-        color: $pagination-active-color;
-        border-color: $pagination-active-border;
-        background-color: $pagination-active-bg;
-    }
-
-}
-
-@media (max-width: 400px) {
-    .initialbar {
-        .letter {
-            /* This is chosen so that 23 letter at 320px just fits */
-            font-size: 11.5px;
-        }
-    }
-}
-
-
 /* Moodle Dialogue Settings (moodle-core-dialogue)  */
 .moodle-dialogue-base .moodle-dialogue-lightbox {
     background-color: $gray;
@@ -1239,6 +1174,7 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
 
 .moodle-dialogue-base .moodle-dialogue-wrap .moodle-dialogue-hd h1 {
     @extend .modal-title;
+    font-size: 1.5rem;
 }
 
 .moodle-dialogue-base .moodle-dialogue-wrap .moodle-dialogue-hd .yui3-widget-buttons {
@@ -1258,7 +1194,7 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
 }
 
 .moodle-dialogue-base .moodle-dialogue .moodle-dialogue-bd {
-    @extend .modal-body;
+    padding: 0.5rem;
 }
 
 .moodle-dialogue-base .moodle-dialogue-fullscreen .moodle-dialogue-content {
@@ -1317,10 +1253,7 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
 }
 
 .moodle-dialogue-confirm .confirmation-message {
-    margin: 0.5em 1em;
-}
-.moodle-dialogue-confirm .confirmation-buttons {
-    text-align: right;
+    margin: 0.5rem 0;
 }
 
 .moodle-dialogue-confirm .confirmation-dialogue input {
@@ -1421,7 +1354,7 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
 /* Fixed for safari browser on iPhone4S with ios7@mixin */
 
 @media (max-height: 639px) {
-    .ios.safari .choosercontainer #chooseform .submitbuttons {
+    .ios .choosercontainer #chooseform .submitbuttons {
         padding: 45px 0;
     }
 }
@@ -1464,6 +1397,8 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
     text-transform: uppercase;
     padding-top: 1.2em;
     padding-bottom: 0.4em;
+    margin-bottom: 0.5rem;
+    font-size: 100%;
 }
 
 .choosercontainer #chooseform .option .typename,
@@ -1823,18 +1758,6 @@ img#persona_signin {
     border-width: 0;
 }
 
-.breadcrumb-nav {
-    float: left;
-}
-
-.breadcrumb-button .singlebutton div {
-    margin-right: 0;
-}
-
-.breadcrumb-nav .breadcrumb {
-    margin: 0;
-}
-
 /** Page header */
 #page-header {
     .logo {
@@ -1845,16 +1768,9 @@ img#persona_signin {
     }
 }
 
-/** Header. */
-header {
-    .logo img {
-        max-height: 35px;
-    }
-    .collapse.in,
-    .collapsing {
-        display: block;
-        clear: both;
-    }
+/** Navbar logo. */
+nav.navbar .logo img {
+    max-height: 35px;
 }
 
 /** Header-bar styles **/
@@ -1984,6 +1900,10 @@ dd:after {
     &.inplaceeditable-toggle .quickediticon {
         display: none;
     }
+
+    &.inplaceeditable-autocomplete {
+        display: block;
+    }
 }
 
 h3.sectionname .inplaceeditable.inplaceeditingon .editinstructions {
@@ -2016,6 +1936,7 @@ h3.sectionname .inplaceeditable.inplaceeditingon .editinstructions {
 // Reset for ul.
 ul {
     padding-left: 1rem;
+    -webkit-margin-start: 0.2rem;  /* stylelint-disable-line */
 }
 
 /* YUI 2 Tree View */
@@ -2111,9 +2032,24 @@ ul {
     }
 }
 
-$footer-link-color: $brand-primary !default;
+// Footer link colour was added to allow the colour of footer links to be changed,
+// but really in bootstrap we want the colour of links on .bg-inverse to be changed
+// rather than being specific to the footer. This is kept for backwards compatibility.
+$footer-link-color: $bg-inverse-link-color !default;
 #page-footer a {
     color: $footer-link-color;
+    text-decoration: underline;
+    .icon {
+        color: $footer-link-color;
+    }
+}
+
+.bg-inverse a {
+    color: $bg-inverse-link-color;
+    text-decoration: underline;
+    .icon {
+        color: $bg-inverse-link-color;
+    }
 }
 
 .sitelink {
@@ -2127,6 +2063,9 @@ $footer-link-color: $brand-primary !default;
     display: block;
     width: 100%;
     color: $body-color;
+}
+.dropdown-item:active a {
+    color: $dropdown-link-active-color;
 }
 
 .competency-tree {
@@ -2146,3 +2085,345 @@ $footer-link-color: $brand-primary !default;
         top: 0;
     }
 }
+
+[data-drag-type="move"] {
+    cursor: move;
+    touch-action: none;
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.overlay-icon-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.6);
+
+    .loading-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+
+        .icon {
+            height: 30px;
+            width: 30px;
+            font-size: 30px;
+        }
+    }
+}
+
+.w-auto {
+    width: auto;
+}
+
+.bg-pulse-grey {
+    animation: bg-pulse-grey 2s infinite linear;
+}
+
+@keyframes bg-pulse-grey {
+    0% {
+        background-color: $gray-100;
+    }
+    50% {
+        background-color: darken($gray-100, 5%);
+    }
+    100% {
+        background-color: $gray-100;
+    }
+}
+
+@each $size, $length in $spacers {
+    .line-height-#{$size} {
+        line-height: $length !important; /* stylelint-disable-line declaration-no-important */
+    }
+}
+
+.dir-rtl {
+    .dir-rtl-hide {
+        display: none;
+    }
+}
+
+.dir-ltr {
+    .dir-ltr-hide {
+        display: none;
+    }
+}
+
+$switch-height: 1.25rem !default;
+$switch-height-half: ($switch-height / 2) !default;
+$switch-width: ($switch-height * 2) !default;
+$switch-border-radius: $switch-height !default;
+$switch-bg: $gray-300 !default;
+$switch-bg-height: 1rem !default;
+$switch-bg-height-half: ($switch-bg-height / 2) !default;
+$switch-checked-bg: rgba(map-get($theme-colors, 'primary'), .4) !default;
+$switch-checked-thumb-bg: map-get($theme-colors, 'primary') !default;
+$switch-disabled-bg: $gray-200 !default;
+$switch-disabled-color: $gray-600 !default;
+$switch-disabled-thumb-bg: $gray-600 !default;
+$switch-thumb-bg: $white !default;
+$switch-thumb-border-radius: 50% !default;
+$switch-thumb-size: $switch-height !default;
+$switch-thumb-size-half: $switch-height-half !default;
+$switch-focus-box-shadow: 0 0 0 ($input-btn-focus-width * 2) rgba(map-get($theme-colors, 'primary'), .25);
+$switch-transition: .2s all !default;
+
+body:not(.behat-site) .switch {
+    position: relative;
+    display: inline-block;
+
+    input {
+        float: left;
+        width: 1px;
+        transform: translateX(1px);
+        padding: 0;
+        margin: 0;
+        opacity: 0;
+        line-height: $switch-height;
+
+        + label {
+            position: relative;
+            min-height: $switch-height;
+            min-width: $switch-width;
+            line-height: $switch-height;
+            border-radius: $switch-border-radius;
+            display: inline-block;
+            cursor: pointer;
+            outline: none;
+            user-select: none;
+            padding-left: ($switch-width + .5rem);
+        }
+
+        + label::before,
+        + label::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            display: block;
+        }
+
+        + label::before {
+            right: 0;
+            height: $switch-bg-height;
+            width: $switch-width;
+            top: calc(50% - #{$switch-bg-height-half});
+            background-color: $switch-bg;
+            border-radius: $switch-border-radius;
+            transition: $switch-transition;
+        }
+
+        + label::after {
+            left: 0;
+            width: $switch-thumb-size;
+            height: $switch-thumb-size;
+            top: calc(50% - #{$switch-thumb-size-half});
+            border-radius: $switch-thumb-border-radius;
+            background-color: $switch-thumb-bg;
+            transition: $switch-transition;
+            box-shadow:
+                0 1px 3px 0 rgba(0, 0, 0, 0.2),
+                0 1px 1px 0 rgba(0, 0, 0, 0.14),
+                0 2px 1px -1px rgba(0, 0, 0, 0.12);
+        }
+
+        &:checked + label::before {
+            background-color: $switch-checked-bg;
+        }
+
+        &:checked + label::after {
+            margin-left: $switch-height;
+            background-color: $switch-checked-thumb-bg;
+        }
+
+        &:focus + label::before {
+            outline: none;
+        }
+
+        &:focus + label::after {
+            outline: none;
+            box-shadow: $switch-focus-box-shadow;
+        }
+
+        &:disabled + label {
+            color: $switch-disabled-color;
+            cursor: not-allowed;
+        }
+
+        &:disabled + label::before {
+            background-color: $switch-disabled-bg;
+        }
+
+        &:disabled + label::after {
+            background-color: $switch-disabled-thumb-bg;
+        }
+    }
+
+    &.sr-only-label {
+        input + label {
+            text-indent: -9999px;
+            margin-bottom: 0;
+            padding-left: 0;
+        }
+    }
+}
+
+.paged-content-page-container {
+    min-height: 3.125rem;
+}
+
+body.h5p-embed {
+    #page-content {
+        display: inherit;
+    }
+    #maincontent {
+        display: none;
+    }
+    .h5pmessages {
+        min-height: 230px; // This should be the same height as default core_h5p iframes.
+    }
+}
+
+.text-decoration-none {
+    text-decoration: none !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.colour-inherit {
+    color: inherit !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.position-right {
+    right: 0 !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.overflow-hidden {
+    overflow: hidden !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.text-break {
+    overflow-wrap: break-word !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.z-index-1 {
+    z-index: 1 !important; /* stylelint-disable-line declaration-no-important */
+}
+
+// These floats are deprecated in Bootstrap 4.3.1. It is still okay to use them in Moodle.
+.float-left {
+    float: left !important; /* stylelint-disable-line declaration-no-important */
+}
+.float-right {
+    float: right !important; /* stylelint-disable-line declaration-no-important */
+}
+
+// Emoji picker.
+$picker-width: 350px !default;
+$picker-width-xs: 320px !default;
+$picker-height: 400px !default;
+$picker-row-height: 40px !default;
+$picker-emoji-button-size: 40px !default;
+$picker-emoji-button-font-size: 24px !default;
+$picker-emoji-category-count: 9 !default;
+$picker-emojis-per-row: 7 !default;
+
+.emoji-picker {
+    width: $picker-width;
+    height: $picker-height;
+
+    .category-button {
+        padding: .375rem 0;
+        height: 100%;
+        width: $picker-width / $picker-emoji-category-count;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        border-bottom: 2px solid transparent;
+
+        &.selected {
+            border-bottom: 2px solid map-get($theme-colors, 'primary');
+        }
+    }
+
+    .emojis-container,
+    .search-results-container {
+        min-width: $picker-emojis-per-row * $picker-emoji-button-size;
+    }
+
+    .picker-row {
+        height: $picker-row-height;
+
+        .category-name {
+            line-height: $picker-row-height;
+        }
+
+        .emoji-button {
+            height: $picker-emoji-button-size;
+            width: $picker-emoji-button-size;
+            line-height: $picker-emoji-button-size;
+            font-size: $picker-emoji-button-font-size;
+            overflow: hidden;
+
+            @include hover-focus {
+                color: inherit;
+                text-decoration: none;
+            }
+        }
+    }
+
+    .emoji-preview {
+        height: $picker-row-height;
+        font-size: $picker-row-height;
+        line-height: $picker-row-height;
+    }
+
+    .emoji-short-name {
+        line-height: $picker-row-height / 2;
+    }
+
+    @include media-breakpoint-down(xs) {
+        width: $picker-width-xs;
+    }
+}
+
+.emoji-auto-complete {
+    height: $picker-row-height;
+
+    .btn.btn-link.btn-icon.emoji-button {
+        height: $picker-emoji-button-size;
+        width: $picker-emoji-button-size;
+        line-height: $picker-emoji-button-size;
+        font-size: $picker-emoji-button-font-size;
+
+        &.active {
+            background-color: $gray-200;
+        }
+    }
+}
+
+.toast-wrapper {
+    max-width: $toast-max-width;
+    max-height: 0;
+    // Place these above any modals and other elements.
+    z-index: 1051;
+
+    > :first-child {
+        margin-top: $spacer;
+    }
+}
+
+@each $color, $value in $theme-colors {
+    .alert-#{$color} a {
+        color: darken(theme-color-level($color, $alert-color-level), 10%);
+    }
+}
+
+.alert a {
+    font-weight: $font-weight-bold;
+}
+

@@ -260,12 +260,16 @@ YUI.add('moodle-core_filepicker', function(Y) {
                 // manually call dynload for parent elements in the tree so we can load other siblings
                 if (options.dynload) {
                     var root = scope.treeview.getRoot();
+                    // Whether search results are currently displayed in the active repository in the filepicker.
+                    // We do not want to load siblings of parent elements when displaying search tree results.
+                    var isSearchResult = typeof options.callbackcontext.active_repo !== 'undefined' &&
+                        options.callbackcontext.active_repo.issearchresult;
                     while (root && root.children && root.children.length) {
                         root = root.children[0];
                         if (root.path == mytreeel.path) {
                             root.origpath = options.filepath;
                             root.origlist = fileslist;
-                        } else if (!root.isLeaf && root.expanded) {
+                        } else if (!root.isLeaf && root.expanded && !isSearchResult) {
                             Y.bind(options.treeview_dynload, options.callbackcontext)(root, null);
                         }
                     }
@@ -678,14 +682,17 @@ M.core_filepicker.init = function(Y, options) {
                     'repository_id': this.active_repo.id,
                     'callback': function(id, o, args) {
                         scope.hide();
+                        // Add an arbitrary parameter to the URL to force browsers to re-load the new image even
+                        // if the file name has not changed.
+                        var urlimage = data.existingfile.url + "?time=" + (new Date()).getTime();
                         if (scope.options.editor_target && scope.options.env == 'editor') {
                             // editor needs to update url
-                            scope.options.editor_target.value = data.existingfile.url;
-                            scope.options.editor_target.onchange();
+                            scope.options.editor_target.value = urlimage;
+                            scope.options.editor_target.dispatchEvent(new Event('change'), {'bubbles': true});
                         }
                         var fileinfo = {'client_id':scope.options.client_id,
-                                'url':data.existingfile.url,
-                                'file':data.existingfile.filename};
+                            'url': urlimage,
+                            'file': data.existingfile.filename};
                         var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
                         scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
                     }
@@ -698,7 +705,7 @@ M.core_filepicker.init = function(Y, options) {
                 var data = this.process_dlg.dialogdata;
                 if (scope.options.editor_target && scope.options.env == 'editor') {
                     scope.options.editor_target.value = data.newfile.url;
-                    scope.options.editor_target.onchange();
+                    scope.options.editor_target.dispatchEvent(new Event('change'), {'bubbles': true});
                 }
                 scope.hide();
                 var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
@@ -1083,7 +1090,7 @@ M.core_filepicker.init = function(Y, options) {
             }, false);
         },
         select_file: function(args) {
-            var argstitle = args.title;
+            var argstitle = args.shorttitle ? args.shorttitle : args.title;
             // Limit the string length so it fits nicely on mobile devices
             var titlelength = 30;
             if (argstitle.length > titlelength) {
@@ -1233,7 +1240,7 @@ M.core_filepicker.init = function(Y, options) {
                         }
                         if (scope.options.editor_target && scope.options.env=='editor') {
                             scope.options.editor_target.value=obj.url;
-                            scope.options.editor_target.onchange();
+                            scope.options.editor_target.dispatchEvent(new Event('change'), {'bubbles': true});
                         }
                         scope.hide();
                         obj.client_id = client_id;
@@ -1350,7 +1357,9 @@ M.core_filepicker.init = function(Y, options) {
                 width        : width+'px',
                 responsiveWidth : 768,
                 height       : '558px',
-                zIndex       : this.options.zIndex
+                zIndex       : this.options.zIndex,
+                focusOnPreviousTargetAfterHide: true,
+                focusAfterHide: this.options.previousActiveElement
             });
 
             // create panel for selecting a file (initially hidden)
@@ -1801,7 +1810,7 @@ M.core_filepicker.init = function(Y, options) {
                             }
                             if (scope.options.editor_target&&scope.options.env=='editor') {
                                 scope.options.editor_target.value=o.url;
-                                scope.options.editor_target.onchange();
+                                scope.options.editor_target.dispatchEvent(new Event('change'), {'bubbles': true});
                             }
                             scope.hide();
                             o.client_id = client_id;

@@ -156,24 +156,14 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
          * Initialise action menu for the element (section or module)
          *
          * @param {String} elementid CSS id attribute of the element
-         * @param {Boolean} openmenu whether to open menu - this can be used when re-initiating menu after indent action was pressed
          */
-        var initActionMenu = function(elementid, openmenu) {
+        var initActionMenu = function(elementid) {
             // Initialise action menu in the new activity.
             Y.use('moodle-course-coursebase', function() {
                 M.course.coursebase.invoke_function('setup_for_resource', '#' + elementid);
             });
             if (M.core.actionmenu && M.core.actionmenu.newDOMNode) {
                 M.core.actionmenu.newDOMNode(Y.one('#' + elementid));
-            }
-            // Open action menu if the original element had data-keepopen.
-            if (openmenu) {
-                // We must use YUI click simulate here so the toggle works in Clean theme. This toggle is not
-                // needed in Boost because we use standard bootstrapbase action menu.
-                var toggle = Y.one('#' + elementid + ' ' + SELECTOR.MENU).one(SELECTOR.TOGGLE);
-                if (toggle && toggle.simulate) {
-                    toggle.simulate('click');
-                }
             }
         };
 
@@ -206,7 +196,8 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
          */
         var findNextFocusable = function(mainElement) {
             var tabables = $("a:visible");
-            var isInside = false, foundElement = null;
+            var isInside = false;
+            var foundElement = null;
             tabables.each(function() {
                 if ($.contains(mainElement[0], this)) {
                     isInside = true;
@@ -226,8 +217,7 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
          * @param {JQuery} target the element (menu item) that was clicked
          */
         var editModule = function(moduleElement, cmid, target) {
-            var keepopen = target.attr('data-keepopen'),
-                    action = target.attr('data-action');
+            var action = target.attr('data-action');
             var spinner = addActivitySpinner(moduleElement);
             var promises = ajax.call([{
                 methodname: 'core_course_edit_module',
@@ -247,7 +237,7 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
                     moduleElement.replaceWith(data);
                     // Initialise action menu for activity(ies) added as a result of this.
                     $('<div>' + data + '</div>').find(SELECTOR.ACTIVITYLI).each(function(index) {
-                        initActionMenu($(this).attr('id'), keepopen);
+                        initActionMenu($(this).attr('id'));
                         if (index === 0) {
                             focusActionItem($(this).attr('id'), action);
                             elementToFocus = null;
@@ -351,30 +341,26 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
          * @param {String} image new image name ("i/show", "i/hide", etc.)
          * @param {String} stringname new string for the action menu item
          * @param {String} stringcomponent
-         * @param {String} titlestr string for "title" attribute (if different from stringname)
-         * @param {String} titlecomponent
+         * @param {String} titlestr not used
+         * @param {String} titlecomponent not used
          * @param {String} newaction new value for data-action attribute of the link
+         * @return {Promise} promise which is resolved when the replacement has completed
          */
         var replaceActionItem = function(actionitem, image, stringname,
                                            stringcomponent, titlestr, titlecomponent, newaction) {
 
-            str.get_string(stringname, stringcomponent).done(function(newstring) {
-                actionitem.find('span.menu-action-text').html(newstring);
-                actionitem.attr('title', newstring);
-            });
-            if (titlestr) {
-                str.get_string(titlestr, titlecomponent).then(function(newtitle) {
-                    templates.renderPix(image, 'core', newtitle).then(function(html) {
-                        actionitem.find('.icon').replaceWith(html);
-                    });
-                    actionitem.attr('title', newtitle);
-                });
-            } else {
-                templates.renderPix(image, 'core', '').then(function(html) {
-                    actionitem.find('.icon').replaceWith(html);
-                });
-            }
-            actionitem.attr('data-action', newaction);
+            var stringRequests = [{key: stringname, component: stringcomponent}];
+            // Do not provide an icon with duplicate, different text to the menu item.
+
+            return str.get_strings(stringRequests).then(function(strings) {
+                actionitem.find('span.menu-action-text').html(strings[0]);
+
+                return templates.renderPix(image, 'core');
+            }).then(function(pixhtml) {
+                actionitem.find('.icon').replaceWith(pixhtml);
+                actionitem.attr('data-action', newaction);
+                return;
+            }).catch(notification.exception);
         };
 
         /**
@@ -445,7 +431,7 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
                 // Find the existing element with the same id and replace its contents with new html.
                 $(SELECTOR.ACTIVITYLI + '#' + id).replaceWith(activityHTML);
                 // Initialise action menu.
-                initActionMenu(id, false);
+                initActionMenu(id);
             });
         };
 
@@ -583,7 +569,7 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/str'
                 str.get_string('numberweeks').done(function(strNumberSections) {
                     var trigger = $(SELECTOR.ADDSECTIONS),
                         modalTitle = trigger.attr('data-add-sections'),
-                        newSections = trigger.attr('new-sections');
+                        newSections = trigger.attr('data-new-sections');
                     var modalBody = $('<div><label for="add_section_numsections"></label> ' +
                         '<input id="add_section_numsections" type="number" min="1" max="' + newSections + '" value="1"></div>');
                     modalBody.find('label').html(strNumberSections);

@@ -47,10 +47,10 @@ class provider implements
     /**
      * Returns meta data about this system.
      *
-     * @param   collection     $itemcollection The initialised item collection to add items to.
+     * @param   collection     $items The initialised item collection to add items to.
      * @return  collection     A listing of user data stored through this system.
      */
-    public static function get_metadata(collection $items) {
+    public static function get_metadata(collection $items) : collection {
         // There are several user preferences.
         $items->add_user_preference(\tool_usertours\tour::TOUR_REQUESTED_BY_USER, 'privacy:metadata:preference:requested');
         $items->add_user_preference(\tool_usertours\tour::TOUR_LAST_COMPLETED_BY_USER, 'privacy:metadata:preference:completed');
@@ -63,8 +63,8 @@ class provider implements
      *
      * @param   int         $userid The userid of the user whose data is to be exported.
      */
-    public static function export_user_preferences($userid) {
-        $preferences = get_user_preferences();
+    public static function export_user_preferences(int $userid) {
+        $preferences = get_user_preferences(null, null, $userid);
         foreach ($preferences as $name => $value) {
             $descriptionidentifier = null;
             $tourid = null;
@@ -77,18 +77,22 @@ class provider implements
             }
 
             if ($descriptionidentifier !== null) {
-                $time = transform::datetime($value);
-                $tour = \tool_usertours\tour::instance($tourid);
+                try {
+                    $tour = \tool_usertours\tour::instance($tourid);
+                    $time = transform::datetime($value);
 
-                writer::export_user_preference(
-                    'tool_usertours',
-                    $name,
-                    $time,
-                    get_string($descriptionidentifier, 'tool_usertours', (object) [
-                        'name' => $tour->get_name(),
-                        'time' => $time,
-                    ])
-                );
+                    writer::export_user_preference(
+                        'tool_usertours',
+                        $name,
+                        $time,
+                        get_string($descriptionidentifier, 'tool_usertours', (object) [
+                            'name' => $tour->get_name(),
+                            'time' => $time,
+                        ])
+                    );
+                } catch (\dml_missing_record_exception $ex) {
+                    // The tour related to this user preference no longer exists.
+                }
             }
         }
     }

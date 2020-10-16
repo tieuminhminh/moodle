@@ -38,7 +38,8 @@ if (!($settingspage->check_access())) {
 $statusmsg = '';
 $errormsg  = '';
 
-if ($data = data_submitted() and confirm_sesskey()) {
+// Form is submitted with changed settings. Do not want to execute when modifying a block.
+if ($data = data_submitted() and confirm_sesskey() and isset($data->action) and $data->action == 'save-settings') {
 
     $count = admin_write_settings($data);
     // Regardless of whether any setting change was written (a positive count), check validation errors for those that didn't.
@@ -154,5 +155,12 @@ $PAGE->requires->yui_module('moodle-core-formchangechecker',
         ))
 );
 $PAGE->requires->string_for_js('changesmadereallygoaway', 'moodle');
+
+if ($settingspage->has_dependencies()) {
+    $opts = [
+        'dependencies' => $settingspage->get_dependencies_for_javascript()
+    ];
+    $PAGE->requires->js_call_amd('core/showhidesettings', 'init', [$opts]);
+}
 
 echo $OUTPUT->footer();

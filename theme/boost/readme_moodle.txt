@@ -4,16 +4,16 @@ Twitter bootstrap
 -----------------
 
 Sass:
-This theme uses the original unmodified version 4.0.0-alpha-3 Twitter bootstrap sass files.
+This theme uses the version 4.3.1 Twitter bootstrap sass files.
 The bootstrap repository is available on:
 
 https://github.com/twitter/bootstrap.git
 
 To update to the latest release of twitter bootstrap:
-* re-apply /* rtl:begin:ignore */ on the top of _popover.scss before .popover rule and /* rtl:end:ignore */ before
-  .popover-arrow::after rule. See MDL-56763 commit (1a4faf9b).
+
 * remove all files from scss/bootstrap,
 * download the new scss files and store them in scss/bootstrap
+* remove left: 0; from .popover {} in scss/bootstrap/_popover.scss. In RTL mode this prevents popovers from showing and it is not required in LTR mode.
 * update ./thirdpartylibs.xml
 
 Javascript:
@@ -21,12 +21,20 @@ Javascript:
 This theme uses the transpiled javascript from bootstrap4 as amd modules.
 
 To update the javascript files:
-Checkout the latest branch of bootstrap to a folder, in that folder run:
+Checkout the version you are updating to in a folder, Run the follwing inside the cloned Bootstrap repository:
 
-> mkdir "out"
-> npm install babel-cli babel-preset-es2015 babel-plugin-transform-es2015-modules-amd
-> ./node_modules/babel-cli/bin/babel.js --presets es2015 --plugins transform-es2015-modules-amd -d out/ js/src/
+```
+$ npm install @babel/cli@7.0.0-beta.41 @babel/preset-env@7.0.0-beta.41 babel-plugin-transform-es2015-modules-amd @babel/plugin-proposal-object-rest-spread
+$ mkdir out
+$ ./node_modules/@babel/cli/bin/babel.js --presets @babel/preset-env --plugins transform-es2015-modules-amd,@babel/plugin-proposal-object-rest-spread -d ./out/ js/src/
+```
 
 Copy the transpiled files from out/ into the amd/src/ folder for the theme.
-Run grunt to re-compile the JS files.
 
+Moodle core includes the popper.js Library, so make sure each of the new js files references the "core/popper" library instead of "popper.js".
+For version 4.3.1 these files were: tooltip.js and dropdown.js
+
+Move the amd/src/tools/sanatizer.js to amd/src/sanatizer.js and update libraries including sanatizer.js.
+For version 4.3.1 this file was: tooltip.js
+
+Run grunt to re-compile the JS files. (thanks to Joby Harding)

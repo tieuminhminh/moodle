@@ -112,26 +112,63 @@ class core_admintree_testcase extends advanced_testcase {
     }
 
     /**
+     * Test that changes to config trigger events.
+     */
+    public function test_config_log_created_event() {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $adminroot = new admin_root(true);
+        $adminroot->add('root', $one = new admin_category('one', 'One'));
+        $page = new admin_settingpage('page', 'Page');
+        $page->add(new admin_setting_configtext('text1', 'Text 1', '', ''));
+        $page->add(new admin_setting_configpasswordunmask('pass1', 'Password 1', '', ''));
+        $adminroot->add('one', $page);
+
+        $sink = $this->redirectEvents();
+        $data = array('s__text1' => 'sometext', 's__pass1' => '');
+        $this->save_config_data($adminroot, $data);
+
+        $events = $sink->get_events();
+        $sink->close();
+        $event = array_pop($events);
+        $this->assertInstanceOf('\core\event\config_log_created', $event);
+
+        $sink = $this->redirectEvents();
+        $data = array('s__text1'=>'other', 's__pass1'=>'nice password');
+        $count = $this->save_config_data($adminroot, $data);
+
+        $events = $sink->get_events();
+        $sink->close();
+        $event = array_pop($events);
+        $this->assertInstanceOf('\core\event\config_log_created', $event);
+        // Verify password was nuked.
+        $this->assertNotEquals($event->other['value'], 'nice password');
+
+    }
+
+    /**
      * Testing whether a configexecutable setting is executable.
      */
     public function test_admin_setting_configexecutable() {
         global $CFG;
         $this->resetAfterTest();
 
-        $CFG->theme = 'clean';
+        $CFG->theme = 'classic';
         $executable = new admin_setting_configexecutable('test1', 'Text 1', 'Help Path', '');
 
         // Check for an invalid path.
         $result = $executable->output_html($CFG->dirroot . '/lib/tests/other/file_does_not_exist');
-        $this->assertRegexp('/class="patherror"/', $result);
+        $this->assertRegexp('/class="text-danger"/', $result);
 
         // Check for a directory.
         $result = $executable->output_html($CFG->dirroot);
-        $this->assertRegexp('/class="patherror"/', $result);
+        $this->assertRegexp('/class="text-danger"/', $result);
 
         // Check for a file which is not executable.
         $result = $executable->output_html($CFG->dirroot . '/filter/tex/readme_moodle.txt');
-        $this->assertRegexp('/class="patherror"/', $result);
+        $this->assertRegexp('/class="text-danger"/', $result);
 
         // Check for an executable file.
         if ($CFG->ostype == 'WINDOWS') {
@@ -140,7 +177,7 @@ class core_admintree_testcase extends advanced_testcase {
             $filetocheck = 'mimetex.darwin';
         }
         $result = $executable->output_html($CFG->dirroot . '/filter/tex/' . $filetocheck);
-        $this->assertRegexp('/class="pathok"/', $result);
+        $this->assertRegexp('/class="text-success"/', $result);
 
         // Check for no file specified.
         $result = $executable->output_html('');
@@ -376,5 +413,29 @@ class core_admintree_testcase extends advanced_testcase {
         // Invalid settings.
         $this->assertEquals('These entries are invalid: nonvalid site name', $adminsetting->write_setting('nonvalid site name'));
         $this->assertEquals('Empty lines are not valid', $adminsetting->write_setting("localhost\n"));
+    }
+
+    /**
+     * Verifies the $ADMIN global (adminroot cache) is properly reset when changing users, which might occur naturally during cron.
+     */
+    public function test_adminroot_cache_reset() {
+        $this->resetAfterTest();
+        global $DB;
+        // Current user is a manager at site context, which won't have access to the 'debugging' section of the admin tree.
+        $manageruser = $this->getDataGenerator()->create_user();
+        $context = context_system::instance();
+        $managerrole = $DB->get_record('role', array('shortname' => 'manager'));
+        role_assign($managerrole->id, $manageruser->id, $context->id);
+        $this->setUser($manageruser);
+        $adminroot = admin_get_root();
+        $section = $adminroot->locate('debugging');
+        $this->assertEmpty($section);
+
+        // Now, change the user to an admin user and confirm we get a new copy of the admin tree when next we ask for it.
+        $adminuser = get_admin();
+        $this->setUser($adminuser);
+        $adminroot = admin_get_root();
+        $section = $adminroot->locate('debugging');
+        $this->assertInstanceOf('\admin_settingpage', $section);
     }
 }

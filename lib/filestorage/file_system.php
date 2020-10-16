@@ -80,7 +80,7 @@ abstract class file_system {
      * @param bool $fetchifnotfound Whether to attempt to fetch from the remote path if not found.
      * @return string full path to pool file with file content
      */
-    protected function get_local_path_from_storedfile(stored_file $file, $fetchifnotfound = false) {
+    public function get_local_path_from_storedfile(stored_file $file, $fetchifnotfound = false) {
         return $this->get_local_path_from_hash($file->get_contenthash(), $fetchifnotfound);
     }
 
@@ -94,7 +94,7 @@ abstract class file_system {
      * @param stored_file $file The file to serve.
      * @return string full path to pool file with file content
      */
-    protected function get_remote_path_from_storedfile(stored_file $file) {
+    public function get_remote_path_from_storedfile(stored_file $file) {
         return $this->get_remote_path_from_hash($file->get_contenthash(), false);
     }
 
@@ -362,7 +362,7 @@ abstract class file_system {
     public function add_to_curl_request(stored_file $file, &$curlrequest, $key) {
         // Note: curl_file_create does not work with remote paths.
         $path = $this->get_local_path_from_storedfile($file, true);
-        $curlrequest->_tmp_file_post_params[$key] = curl_file_create($path);
+        $curlrequest->_tmp_file_post_params[$key] = curl_file_create($path, null, $file->get_filename());
     }
 
     /**
@@ -416,11 +416,16 @@ abstract class file_system {
     protected function get_imageinfo_from_path($path) {
         $imageinfo = getimagesize($path);
 
+        if (!is_array($imageinfo)) {
+            return false; // Nothing to process, the file was not recognised as image by GD.
+        }
+
         $image = array(
                 'width'     => $imageinfo[0],
                 'height'    => $imageinfo[1],
                 'mimetype'  => image_type_to_mime_type($imageinfo[2]),
             );
+
         if (empty($image['width']) or empty($image['height']) or empty($image['mimetype'])) {
             // GD can not parse it, sorry.
             return false;
@@ -441,6 +446,70 @@ abstract class file_system {
         require_once($CFG->libdir . "/xsendfilelib.php");
 
         return xsendfile($this->get_remote_path_from_hash($contenthash));
+    }
+
+    /**
+     * Returns true if filesystem is configured to support xsendfile.
+     *
+     * @return bool
+     */
+    public function supports_xsendfile() {
+        global $CFG;
+        return !empty($CFG->xsendfile);
+    }
+
+    /**
+     * Validate that the content hash matches the content hash of the file on disk.
+     *
+     * @param string $contenthash The current content hash to validate
+     * @param string $pathname The path to the file on disk
+     * @return array The content hash (it might change) and file size
+     */
+    protected function validate_hash_and_file_size($contenthash, $pathname) {
+        global $CFG;
+
+        if (!is_readable($pathname)) {
+            throw new file_exception('storedfilecannotread', '', $pathname);
+        }
+
+        $filesize = filesize($pathname);
+        if ($filesize === false) {
+            throw new file_exception('storedfilecannotread', '', $pathname);
+        }
+
+        if (is_null($contenthash)) {
+            $contenthash = file_storage::hash_from_path($pathname);
+        } else if ($CFG->debugdeveloper) {
+            $filehash = file_storage::hash_from_path($pathname);
+            if ($filehash === false) {
+                throw new file_exception('storedfilecannotread', '', $pathname);
+            }
+            if ($filehash !== $contenthash) {
+                // Hopefully this never happens, if yes we need to fix calling code.
+                debugging("Invalid contenthash submitted for file $pathname", DEBUG_DEVELOPER);
+                $contenthash = $filehash;
+            }
+        }
+        if ($contenthash === false) {
+            throw new file_exception('storedfilecannotread', '', $pathname);
+        }
+
+        if ($filesize > 0 and $contenthash === file_storage::hash_from_string('')) {
+            // Did the file change or is file_storage::hash_from_path() borked for this file?
+            clearstatcache();
+            $contenthash = file_storage::hash_from_path($pathname);
+            $filesize    = filesize($pathname);
+
+            if ($contenthash === false or $filesize === false) {
+                throw new file_exception('storedfilecannotread', '', $pathname);
+            }
+            if ($filesize > 0 and $contenthash === file_storage::hash_from_string('')) {
+                // This is very weird...
+                throw new file_exception('storedfilecannotread', '', $pathname);
+            }
+        }
+
+        return [$contenthash, $filesize];
     }
 
     /**
@@ -519,14 +588,13 @@ abstract class file_system {
      * @return string The MIME type.
      */
     public function mimetype_from_hash($contenthash, $filename) {
-        $pathname = $this->get_remote_path_from_hash($contenthash);
+        $pathname = $this->get_local_path_from_hash($contenthash);
         $mimetype = file_storage::mimetype($pathname, $filename);
 
-        if (!$this->is_file_readable_locally_by_hash($contenthash, false) && $mimetype === 'document/unknown') {
+        if ($mimetype === 'document/unknown' && !$this->is_file_readable_locally_by_hash($contenthash)) {
             // The type is unknown, but the full checks weren't completed because the file isn't locally available.
             // Ensure we have a local copy and try again.
             $pathname = $this->get_local_path_from_hash($contenthash, true);
-
             $mimetype = file_storage::mimetype_from_file($pathname);
         }
 
@@ -544,18 +612,7 @@ abstract class file_system {
             // Files with an empty filesize are treated as directories and have no mimetype.
             return null;
         }
-        $pathname = $this->get_remote_path_from_storedfile($file);
-        $mimetype = file_storage::mimetype($pathname, $file->get_filename());
-
-        if (!$this->is_file_readable_locally_by_storedfile($file) && $mimetype === 'document/unknown') {
-            // The type is unknown, but the full checks weren't completed because the file isn't locally available.
-            // Ensure we have a local copy and try again.
-            $pathname = $this->get_local_path_from_storedfile($file, true);
-
-            $mimetype = file_storage::mimetype_from_file($pathname);
-        }
-
-        return $mimetype;
+        return $this->mimetype_from_hash($file->get_contenthash(), $file->get_filename());
     }
 
     /**

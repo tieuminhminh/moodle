@@ -2,13 +2,10 @@
 
 namespace Box\Spout\Reader\Wrapper;
 
-
 /**
  * Class XMLReader
  * Wrapper around the built-in XMLReader
  * @see \XMLReader
- *
- * @package Box\Spout\Reader\Wrapper
  */
 class XMLReader extends \XMLReader
 {
@@ -28,13 +25,10 @@ class XMLReader extends \XMLReader
         $wasOpenSuccessful = false;
         $realPathURI = $this->getRealPathURIForFileInZip($zipFilePath, $fileInsideZipPath);
 
-        // HHVM does not check if file exists within zip file
-        // @link https://github.com/facebook/hhvm/issues/5779
-        if ($this->isRunningHHVM()) {
-            if ($this->fileExistsWithinZip($realPathURI)) {
-                $wasOpenSuccessful = $this->open($realPathURI, null, LIBXML_NONET);
-            }
-        } else {
+        // We need to check first that the file we are trying to read really exist because:
+        //  - PHP emits a warning when trying to open a file that does not exist.
+        //  - HHVM does not check if file exists within zip file (@link https://github.com/facebook/hhvm/issues/5779)
+        if ($this->fileExistsWithinZip($realPathURI)) {
             $wasOpenSuccessful = $this->open($realPathURI, null, LIBXML_NONET);
         }
 
@@ -51,17 +45,10 @@ class XMLReader extends \XMLReader
      */
     public function getRealPathURIForFileInZip($zipFilePath, $fileInsideZipPath)
     {
-        return (self::ZIP_WRAPPER . realpath($zipFilePath) . '#' . $fileInsideZipPath);
-    }
+        // The file path should not start with a '/', otherwise it won't be found
+        $fileInsideZipPathWithoutLeadingSlash = ltrim($fileInsideZipPath, '/');
 
-    /**
-     * Returns whether the current environment is HHVM
-     *
-     * @return bool TRUE if running on HHVM, FALSE otherwise
-     */
-    protected function isRunningHHVM()
-    {
-        return defined('HHVM_VERSION');
+        return (self::ZIP_WRAPPER . realpath($zipFilePath) . '#' . $fileInsideZipPathWithoutLeadingSlash);
     }
 
     /**
@@ -93,8 +80,8 @@ class XMLReader extends \XMLReader
      * Move to next node in document
      * @see \XMLReader::read
      *
-     * @return bool TRUE on success or FALSE on failure
      * @throws \Box\Spout\Reader\Exception\XMLProcessingException If an error/warning occurred
+     * @return bool TRUE on success or FALSE on failure
      */
     public function read()
     {
@@ -111,8 +98,8 @@ class XMLReader extends \XMLReader
      * Read until the element with the given name is found, or the end of the file.
      *
      * @param string $nodeName Name of the node to find
-     * @return bool TRUE on success or FALSE on failure
      * @throws \Box\Spout\Reader\Exception\XMLProcessingException If an error/warning occurred
+     * @return bool TRUE on success or FALSE on failure
      */
     public function readUntilNodeFound($nodeName)
     {
@@ -128,9 +115,9 @@ class XMLReader extends \XMLReader
      * Move cursor to next node skipping all subtrees
      * @see \XMLReader::next
      *
-     * @param string|void $localName The name of the next node to move to
-     * @return bool TRUE on success or FALSE on failure
+     * @param string|null $localName The name of the next node to move to
      * @throws \Box\Spout\Reader\Exception\XMLProcessingException If an error/warning occurred
+     * @return bool TRUE on success or FALSE on failure
      */
     public function next($localName = null)
     {
@@ -149,7 +136,7 @@ class XMLReader extends \XMLReader
      */
     public function isPositionedOnStartingNode($nodeName)
     {
-        return $this->isPositionedOnNode($nodeName, XMLReader::ELEMENT);
+        return $this->isPositionedOnNode($nodeName, self::ELEMENT);
     }
 
     /**
@@ -158,7 +145,7 @@ class XMLReader extends \XMLReader
      */
     public function isPositionedOnEndingNode($nodeName)
     {
-        return $this->isPositionedOnNode($nodeName, XMLReader::END_ELEMENT);
+        return $this->isPositionedOnNode($nodeName, self::END_ELEMENT);
     }
 
     /**
@@ -175,5 +162,13 @@ class XMLReader extends \XMLReader
         $currentNodeName = ($hasPrefix) ? $this->name : $this->localName;
 
         return ($this->nodeType === $nodeType && $currentNodeName === $nodeName);
+    }
+
+    /**
+     * @return string The name of the current node, un-prefixed
+     */
+    public function getCurrentNodeName()
+    {
+        return $this->localName;
     }
 }

@@ -118,6 +118,12 @@
     background-color: #cfefcf;
 }
 
+.path-mod-assign td.gradingreminder,
+.path-mod-assign div.gradingreminder {
+    color: black;
+    background-color: #efcfcf;
+}
+
 .path-mod-assign .gradingtable .c0 {
     display: none;
 }
@@ -176,17 +182,20 @@
     background-color: #fc9;
 }
 
+.path-mod-assign .gradingtable .commentscontainer .comment-ctrl .comment-area textarea {
+    resize: both;
+}
+
 .path-mod-assign td.submissioneditable {
     color: red;
 }
 
 .path-mod-assign .expandsummaryicon {
-    cursor: pointer;
     display: none;
 }
 
 .path-mod-assign.jsenabled .expandsummaryicon {
-    display: inline;
+    display: inline-block;
 }
 
 .path-mod-assign .hidefull {
@@ -348,14 +357,14 @@
 .path-mod-assign [data-region="configure-filters"] {
     display: none;
     text-align: left;
-    width: auto;
+    width: 480px;
     background-color: #fff;
     background-clip: padding-box;
     box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     position: absolute;
     margin-top: 28px;
-    margin-left: -140px;
+    margin-left: -452px;
     padding: 10px 0;
     z-index: 1;
 }
@@ -383,11 +392,6 @@
     right: 13px;
     border-width: 6px;
     border-bottom-color: #fff;
-}
-
-.path-mod-assign [data-region="configure-filters"] label {
-    display: block;
-    padding: 3px 20px;
 }
 
 .path-mod-assign .alignment [data-region="configure-filters"] input {
@@ -480,7 +484,6 @@
     border: 1px solid #ccc;
     border-top: none;
     background-color: #fff;
-    z-index: 99999;
 }
 
 .path-mod-assign [data-region="review-panel"] [data-region="review-panel-toggle"] .expand-icon,
@@ -545,9 +548,9 @@
 
 .path-mod-assign [data-region="review-panel"].collapsed [data-region="review-panel-content"] {
     visibility: hidden;
-    -webkit-transition: visibility 0 0.5s;
-    -moz-transition: visibility 0 0.5s;
-    transition: visibility 0 0.5s;
+    -webkit-transition: visibility 0s 0.5s;
+    -moz-transition: visibility 0s 0.5s;
+    transition: visibility 0s 0.5s;
 }
 
 .path-mod-assign [data-region="review-panel"].collapsed [data-region="review-panel-toggle"] .expand-icon {
@@ -597,9 +600,9 @@
     left: calc(100% - 30px);
     right: calc(30px - 100%);
     visibility: hidden;
-    -webkit-transition: right 0.5s, left 0.5s, visibility 0 0.5s;
-    -moz-transition: right 0.5s, left 0.5s, visibility 0 0.5s;
-    transition: right 0.5s, left 0.5s, visibility 0 0.5s;
+    -webkit-transition: right 0.5s, left 0.5s, visibility 0s 0.5s;
+    -moz-transition: right 0.5s, left 0.5s, visibility 0s 0.5s;
+    transition: right 0.5s, left 0.5s, visibility 0s 0.5s;
 }
 
 .path-mod-assign [data-region="grade-panel"].fullwidth {
@@ -647,6 +650,15 @@
 .path-mod-assign [data-region="grade-panel"] div.submissionnotgraded {
     color: red;
     background-color: transparent;
+}
+
+.path-mod-assign div.fileuploadsubmission {
+    float: left;
+    min-width: 300px;
+}
+
+.path-mod-assign div.fileuploadsubmissiontime {
+    float: right;
 }
 
 /***** End submission status *****/
@@ -751,8 +763,11 @@
 /***** Start rubric *****/
 
 .path-mod-assign [data-region="grade-panel"] .gradingform_rubric {
+    max-width: 100%;
     padding-bottom: 0;
-    max-width: none;
+}
+.path-mod-assign .gradingform_rubric {
+    max-width: calc(100vw - 200px);
 }
 
 .path-mod-assign [data-region="grade-panel"] .gradingform_rubric .criterion .description {
@@ -963,7 +978,6 @@
     left: auto;
     right: 15px;
     margin: 0;
-    height: 100%;
     line-height: 60px;
 }
 
@@ -1072,7 +1086,6 @@
         border: 1px solid #ccc;
         border-radius: 0 0 4px 0;
         background-color: #fff;
-        z-index: 99999;
     }
 
     .path-mod-assign [data-region="review-panel"] [data-region="review-panel-toggle"] .expand-icon,
@@ -1102,9 +1115,9 @@
         visibility: visible;
         opacity: 1;
         height: auto;
-        -webkit-transition: visibility 0 0.25s, opacity 0 0.25s;
-        -moz-transition: visibility 0 0.25s, opacity 0 0.25s;
-        transition: visibility 0 0.25s, opacity 0 0.25s;
+        -webkit-transition: visibility 0s 0.25s, opacity 0s 0.25s;
+        -moz-transition: visibility 0s 0.25s, opacity 0s 0.25s;
+        transition: visibility 0s 0.25s, opacity 0s 0.25s;
     }
 
     .path-mod-assign [data-region="review-panel"] [data-region="review-panel-toggle"] .expand-icon .rtl-icon {
@@ -1124,9 +1137,9 @@
     .path-mod-assign [data-region="review-panel"].collapsed [data-region="review-panel-toggle"] {
         width: 100%;
         border-radius: 0 0 0 0;
-        -webkit-transition: all 0 0.25s;
-        -moz-transition: all 0 0.25s;
-        transition: all 0 0.25s;
+        -webkit-transition: all 0s 0.25s;
+        -moz-transition: all 0s 0.25s;
+        transition: all 0s 0.25s;
     }
 
     .path-mod-assign [data-region="review-panel"].collapsed [data-region="review-panel-toggle"] img {
@@ -1150,6 +1163,7 @@
         width: auto;
         display: inline-block;
         margin: 0 auto;
+        height: auto;
     }
 
     .path-mod-assign [data-region="user-selector"] .alignment {

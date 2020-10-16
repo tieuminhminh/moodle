@@ -95,13 +95,11 @@ class event_vault implements event_vault_interface {
         array $usersfilter = null,
         array $groupsfilter = null,
         array $coursesfilter = null,
+        array $categoriesfilter = null,
         $withduration = true,
         $ignorehidden = true,
         callable $filter = null
     ) {
-        if ($limitnum < 1 || $limitnum > 50) {
-            throw new limit_invalid_parameter_exception("Limit must be between 1 and 50 (inclusive)");
-        }
 
         $fromquery = function($field, $timefrom, $lastseenmethod, $afterevent, $withduration) {
             if (!$timefrom) {
@@ -162,6 +160,7 @@ class event_vault implements event_vault_interface {
             $usersfilter,
             $groupsfilter,
             $coursesfilter,
+            $categoriesfilter,
             $where,
             $params,
             "COALESCE(e.timesort, e.timestart) ASC, e.id ASC",
@@ -184,7 +183,11 @@ class event_vault implements event_vault_interface {
                 }
             }
 
-            $offset += $limitnum;
+            if (!$limitnum) {
+                break;
+            } else {
+                $offset += $limitnum;
+            }
         }
 
         return $events;
@@ -195,11 +198,12 @@ class event_vault implements event_vault_interface {
         $timesortfrom = null,
         $timesortto = null,
         event_interface $afterevent = null,
-        $limitnum = 20
+        $limitnum = 20,
+        $limittononsuspendedevents = false
     ) {
         $courseids = array_map(function($course) {
             return $course->id;
-        }, enrol_get_all_users_courses($user->id));
+        }, enrol_get_all_users_courses($user->id, $limittononsuspendedevents));
 
         $groupids = array_reduce($courseids, function($carry, $courseid) use ($user) {
             $groupings = groups_get_user_groups($courseid, $user->id);
@@ -219,6 +223,7 @@ class event_vault implements event_vault_interface {
             [$user->id],
             $groupids ? $groupids : null,
             $courseids ? $courseids : null,
+            null, // All categories.
             true,
             true,
             function ($event) {
@@ -249,6 +254,7 @@ class event_vault implements event_vault_interface {
                 [$user->id],
                 $groupings[0] ? $groupings[0] : null,
                 [$course->id],
+                [],
                 true,
                 true,
                 function ($event) use ($course) {
@@ -373,6 +379,7 @@ class event_vault implements event_vault_interface {
         return array_values(
             $this->retrievalstrategy->get_raw_events(
                 [$userid],
+                null,
                 null,
                 null,
                 $whereconditions,

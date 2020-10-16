@@ -213,6 +213,7 @@ class MoodleQuickForm_group extends HTML_QuickForm_group implements templatable 
             $i++;
         }
 
+        $context['groupname'] = $name;
         $context['elements'] = $elements;
         return $context;
     }
@@ -255,5 +256,23 @@ class MoodleQuickForm_group extends HTML_QuickForm_group implements templatable 
             }
         }
         $renderer->finishGroup($this);
+    }
+
+    /**
+     * Calls the validateSubmitValue function for the containing elements and returns an error string as soon as it finds one.
+     *
+     * @param array $values Values of the containing elements.
+     * @return string|null Validation error message or null.
+     */
+    public function validateSubmitValue($values) {
+        foreach ($this->_elements as $element) {
+            if (method_exists($element, 'validateSubmitValue')) {
+                $value = $values[$element->getName()] ?? null;
+                $result = $element->validateSubmitValue($value);
+                if (!empty($result) && is_string($result)) {
+                    return $result;
+                }
+            }
+        }
     }
 }

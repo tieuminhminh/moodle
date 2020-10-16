@@ -1,24 +1,31 @@
 Description of import of Horde libraries
-
-# Download the Horde git repository. You will probably want to keep this
-  around for future updates:
-    git clone git@github.com:horde/horde.git
-# Checkout the version of horde you require:
-    git checkout horde-5.2.7
-# Copy the following script and store it on /tmp, change it's execute bit, and run it, passing
-  in your path to Horde (the directory you've cloned the repository):
-    /tmp/copyhorde.sh ~/git/ext/horde/
-# MDL-52361 patched for PHP7 compatibility, after upgrade make sure it's updated upstream and remove this line
+# Clone the Horde Git Tools repository and install. You will need
+  this for future updates:
+    https://github.com/horde/git-tools
+# Make sure to follow the #Configuration step mentioned in the URL above. In
+  particular make sure to set the 'git_base' config option in conf.php
+# Go into the repository cloned above and perform the following:
+    bin/horde-git-tools git clone
+  (Go for a coffee, this will take a while)
+# Checkout the latest stable version for all repos, currently 5.2:
+    bin/horde-git-tools git checkout FRAMEWORK_5_2
+# Copy the following script and store it on /tmp, change it's execute bit(chmod 777), and run it,
+  passing in your path to Horde (the directory you've cloned the repository):
+    /tmp/copyhorde.sh ~/git/base/directory/from/step/2
+# Verify that these patches have been applied in the imported version. Apply them locally if not:
+    - https://github.com/horde/Mail/pull/1 (Mail component).
+    - https://github.com/horde/Imap_Client/pull/6 (IMAP Client component).
+    - https://github.com/horde/Crypt_Blowfish/pull/1 (PHP 7.4 compatibility, Crypt_Blowfish)
 
 ====
 #!/bin/sh
 
-source=$1/framework
+source=$1
 target=./lib/horde
 
 echo "Copy Horde modules from $source to $target"
 
-modules="Crypt_Blowfish Exception Imap_Client Mail Mime Secret Socket_Client Stream Stream_Filter Stream_Wrapper Support Text_Flowed Translation Util"
+modules="Crypt_Blowfish Exception Idna Imap_Client Mail Mime Secret Socket_Client Stream Stream_Filter Stream_Wrapper Support Text_Flowed Translation Util"
 
 rm -rf $target/locale $target/framework
 mkdir -p $target/locale $target/framework/Horde

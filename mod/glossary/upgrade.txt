@@ -1,6 +1,16 @@
 This files describes API changes in /mod/glossary/*,
 information provided here is intended especially for developers.
 
+=== 3.8 ===
+* The following functions have been finally deprecated and can not be used anymore:
+    * glossary_scale_used()
+
+=== 3.7 ===
+* External functions get_entries_by_* and get_entry now return an additional field "tags" containing the entry tags.
+
+=== 3.4 ===
+  * External functions returning entries now return an additional field "ratinginfo" containing the entry rating information.
+
 === 3.2 ===
 * External functions that were returning file information now return the following file fields:
   filename, filepath, mimetype, filesize, timemodified and fileurl.

@@ -138,19 +138,10 @@ final class core_media_manager {
     }
 
     /**
-     * Setup page requirements.
-     *
-     * This should must only be called once per page request.
-     *
-     * @deprecated Moodle 3.3, The setup is now done in ::instance() so there is no need to call this
-     * @param moodle_page $page The page we are going to add requirements to.
-     * @see core_media_manager::instance()
-     * @todo MDL-57632 final deprecation
+     * @deprecated since Moodle 3.3. The setup is now done in ::instance() so there is no need to call this.
      */
-    public function setup($page) {
-        debugging('core_media_manager::setup() is deprecated.' .
-                  'You only need to call core_media_manager::instance() now', DEBUG_DEVELOPER);
-        // No need to call ::instance from here, because the instance has already be set up.
+    public function setup() {
+        throw new coding_exception('core_media_manager::setup() can not be used any more because it is done in ::instance()');
     }
 
     /**
@@ -399,6 +390,7 @@ final class core_media_manager {
      * @return array Array of 1 or more moodle_url objects
      */
     public function split_alternatives($combinedurl, &$width, &$height) {
+        global $CFG;
         $urls = explode('#', $combinedurl);
         $width = 0;
         $height = 0;
@@ -425,16 +417,11 @@ final class core_media_manager {
                 $url = str_replace($matches[0], '', $url);
             }
 
-            // Clean up url. Allow rtmp:// protocol even though it's not allowed by clean_param(..., PARAM_URL).
-            if ($isrtmp = preg_match('|^(rtmp://)(.*)$|i', trim($url), $matches)) {
-                $url = "http://" . $matches[2];
-            }
-            $url = clean_param($url, PARAM_URL);
-            if (empty($url)) {
+            // Clean up url.
+            $url = fix_utf8($url);
+            include_once($CFG->dirroot . '/lib/validateurlsyntax.php');
+            if (!validateUrlSyntax($url, 's?H?S?F?R?E?u-P-a?I?p?f?q?r?')) {
                 continue;
-            }
-            if ($isrtmp) {
-                $url = preg_replace('|^http://|', $matches[1], $url);
             }
 
             // Turn it into moodle_url object.

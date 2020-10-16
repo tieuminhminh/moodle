@@ -122,7 +122,8 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
      * Test get databases by courses
      */
     public function test_mod_data_get_databases_by_courses() {
-        global $DB;
+        global $DB, $CFG;
+        require_once($CFG->libdir . '/externallib.php');
 
         $this->resetAfterTest(true);
 
@@ -141,6 +142,9 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $record = new stdClass();
         $record->introformat = FORMAT_HTML;
         $record->course = $course1->id;
+        // Set multilang text to check that is properly filtered to "en" only.
+        $record->name = '<span lang="en" class="multilang">English</span><span lang="es" class="multilang">Español</span>';
+        $record->intro = '<button>Test with HTML allowed.</button>';
         $database1 = self::getDataGenerator()->create_module('data', $record);
 
         // Second database.
@@ -167,6 +171,14 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         }
         $enrol->enrol_user($instance2, $student->id, $studentrole->id);
 
+        // Enable multilang filter to on content and heading.
+        filter_manager::reset_caches();
+        filter_set_global_state('multilang', TEXTFILTER_ON);
+        filter_set_applies_to_strings('multilang', true);
+        // Set WS filtering.
+        $wssettings = external_settings::get_instance();
+        $wssettings->set_filter(true);
+
         // Create what we expect to be returned when querying the two courses.
         // First for the student user.
         $expectedfields = array('id', 'coursemodule', 'course', 'name', 'comments', 'timeavailablefrom',
@@ -191,6 +203,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
             $expected1[$field] = $database1->{$field};
             $expected2[$field] = $database2->{$field};
         }
+        $expected1['name'] = 'English'; // Lang filtered expected.
         $expected1['comments'] = (bool) $expected1['comments'];
         $expected2['comments'] = (bool) $expected2['comments'];
 
@@ -274,7 +287,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
     public function test_view_database_no_capabilities() {
         // Test user with no capabilities.
         // We need a explicit prohibit since this capability is allowed for students by default.
-        assign_capability('mod/data:viewpage', CAP_PROHIBIT, $this->studentrole->id, $this->context->id);
+        assign_capability('mod/data:view', CAP_PROHIBIT, $this->studentrole->id, $this->context->id);
         accesslib_clear_all_caches_for_unit_testing();
 
         $this->expectException('moodle_exception');
@@ -412,9 +425,9 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         }
 
         $this->setUser($this->student1);
-        $entry11 = $generator->create_entry($this->database, $fieldcontents, $this->group1->id);
+        $entry11 = $generator->create_entry($this->database, $fieldcontents, $this->group1->id, ['Cats', 'Dogs']);
         $this->setUser($this->student2);
-        $entry12 = $generator->create_entry($this->database, $fieldcontents, $this->group1->id);
+        $entry12 = $generator->create_entry($this->database, $fieldcontents, $this->group1->id, ['Cats']);
         $entry13 = $generator->create_entry($this->database, $fieldcontents, $this->group1->id);
         // Entry not in group.
         $entry14 = $generator->create_entry($this->database, $fieldcontents, 0);
@@ -447,10 +460,13 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $this->assertCount(3, $result['entries']);
         $this->assertEquals(3, $result['totalcount']);
         $this->assertEquals($entry11, $result['entries'][0]['id']);
+        $this->assertCount(2, $result['entries'][0]['tags']);
         $this->assertEquals($this->student1->id, $result['entries'][0]['userid']);
         $this->assertEquals($this->group1->id, $result['entries'][0]['groupid']);
         $this->assertEquals($this->database->id, $result['entries'][0]['dataid']);
         $this->assertEquals($entry12, $result['entries'][1]['id']);
+        $this->assertCount(1, $result['entries'][1]['tags']);
+        $this->assertEquals('Cats', $result['entries'][1]['tags'][0]['rawname']);
         $this->assertEquals($this->student2->id, $result['entries'][1]['userid']);
         $this->assertEquals($this->group1->id, $result['entries'][1]['groupid']);
         $this->assertEquals($this->database->id, $result['entries'][1]['dataid']);
@@ -708,6 +724,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(3, $result['entries']);
         $this->assertEquals(3, $result['totalcount']);
+        $this->assertEquals(3, $result['maxcount']);
 
         // Now as the other student I should receive my not approved entry. Apply ordering here.
         $this->setUser($this->student2);
@@ -715,6 +732,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(4, $result['entries']);
         $this->assertEquals(4, $result['totalcount']);
+        $this->assertEquals(4, $result['maxcount']);
         // The not approved one should be the first.
         $this->assertEquals($entry13, $result['entries'][0]['id']);
 
@@ -724,6 +742,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(2, $result['entries']);
         $this->assertEquals(2, $result['totalcount']);
+        $this->assertEquals(2, $result['maxcount']);
         $this->assertEquals($this->student2->id, $result['entries'][0]['userid']);
         $this->assertEquals($this->student3->id, $result['entries'][1]['userid']);
 
@@ -733,6 +752,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(5, $result['entries']);  // I can see all groups and non approved.
         $this->assertEquals(5, $result['totalcount']);
+        $this->assertEquals(5, $result['maxcount']);
 
         // Pagination.
         $this->setUser($this->teacher);
@@ -740,6 +760,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(2, $result['entries']);  // Only 2 per page.
         $this->assertEquals(5, $result['totalcount']);
+        $this->assertEquals(5, $result['maxcount']);
 
         // Now advanced search or not dinamic fields (user firstname for example).
         $this->setUser($this->student1);
@@ -750,6 +771,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(2, $result['entries']);
         $this->assertEquals(2, $result['totalcount']);
+        $this->assertEquals(3, $result['maxcount']);
         $this->assertEquals($this->student2->id, $result['entries'][0]['userid']);  // I only found mine!
 
         // Advanced search for fields.
@@ -761,6 +783,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(3, $result['entries']);  // Found two entries matching this.
         $this->assertEquals(3, $result['totalcount']);
+        $this->assertEquals(3, $result['maxcount']);
 
         // Combined search.
         $field2 = $DB->get_record('data_fields', array('type' => 'number'));
@@ -773,6 +796,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(2, $result['entries']);  // Only one matching everything.
         $this->assertEquals(2, $result['totalcount']);
+        $this->assertEquals(3, $result['maxcount']);
 
         // Combined search (no results).
         $field2 = $DB->get_record('data_fields', array('type' => 'number'));
@@ -784,6 +808,7 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $result = external_api::clean_returnvalue(mod_data_external::search_entries_returns(), $result);
         $this->assertCount(0, $result['entries']);  // Only one matching everything.
         $this->assertEquals(0, $result['totalcount']);
+        $this->assertEquals(3, $result['maxcount']);
     }
 
     /**
@@ -1254,5 +1279,69 @@ class mod_data_external_testcase extends externallib_advanced_testcase {
         $this->expectExceptionMessage(get_string('noaccess', 'data'));
         $this->expectException('moodle_exception');
         mod_data_external::update_entry($entry11, []);
+    }
+
+    /**
+     * Test get_entry_rating_information.
+     */
+    public function test_get_entry_rating_information() {
+        global $DB, $CFG;
+        require_once($CFG->dirroot . '/rating/lib.php');
+
+        $DB->set_field('data', 'assessed', RATING_AGGREGATE_SUM, array('id' => $this->database->id));
+        $DB->set_field('data', 'scale', 100, array('id' => $this->database->id));
+        list($entry11, $entry12, $entry13, $entry14, $entry21) = self::populate_database_with_entries();
+
+        $user1 = self::getDataGenerator()->create_user();
+        $user2 = self::getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($user1->id, $this->course->id, $this->studentrole->id, 'manual');
+        $this->getDataGenerator()->enrol_user($user2->id, $this->course->id, $this->studentrole->id, 'manual');
+
+        // Rate the entry as user1.
+        $rating1 = new stdClass();
+        $rating1->contextid = $this->context->id;
+        $rating1->component = 'mod_data';
+        $rating1->ratingarea = 'entry';
+        $rating1->itemid = $entry11;
+        $rating1->rating = 50;
+        $rating1->scaleid = 100;
+        $rating1->userid = $user1->id;
+        $rating1->timecreated = time();
+        $rating1->timemodified = time();
+        $rating1->id = $DB->insert_record('rating', $rating1);
+
+        // Rate the entry as user2.
+        $rating2 = new stdClass();
+        $rating2->contextid = $this->context->id;
+        $rating2->component = 'mod_data';
+        $rating2->ratingarea = 'entry';
+        $rating2->itemid = $entry11;
+        $rating2->rating = 100;
+        $rating2->scaleid = 100;
+        $rating2->userid = $user2->id;
+        $rating2->timecreated = time() + 1;
+        $rating2->timemodified = time() + 1;
+        $rating2->id = $DB->insert_record('rating', $rating2);
+
+        // As student, retrieve ratings information.
+        $this->setUser($this->student2);
+        $result = mod_data_external::get_entry($entry11);
+        $result = external_api::clean_returnvalue(mod_data_external::get_entry_returns(), $result);
+        $this->assertCount(1, $result['ratinginfo']['ratings']);
+        $this->assertFalse($result['ratinginfo']['ratings'][0]['canviewaggregate']);
+        $this->assertFalse($result['ratinginfo']['canviewall']);
+        $this->assertFalse($result['ratinginfo']['ratings'][0]['canrate']);
+        $this->assertTrue(!isset($result['ratinginfo']['ratings'][0]['count']));
+
+        // Now, as teacher, I should see the info correctly.
+        $this->setUser($this->teacher);
+        $result = mod_data_external::get_entry($entry11);
+        $result = external_api::clean_returnvalue(mod_data_external::get_entry_returns(), $result);
+        $this->assertCount(1, $result['ratinginfo']['ratings']);
+        $this->assertTrue($result['ratinginfo']['ratings'][0]['canviewaggregate']);
+        $this->assertTrue($result['ratinginfo']['canviewall']);
+        $this->assertTrue($result['ratinginfo']['ratings'][0]['canrate']);
+        $this->assertEquals(2, $result['ratinginfo']['ratings'][0]['count']);
+        $this->assertEquals(100, $result['ratinginfo']['ratings'][0]['aggregate']); // Expect maximium scale value.
     }
 }

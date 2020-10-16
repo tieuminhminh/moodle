@@ -463,7 +463,7 @@ class core_files_zip_packer_testcase extends advanced_testcase implements file_p
             $result = $zip_archive->close();
         } catch (Exception $e) {
             // New PHP versions print PHP Warning.
-            $this->assertInstanceOf('PHPUnit_Framework_Error_Warning', $e);
+            $this->assertInstanceOf('PHPUnit\Framework\Error\Warning', $e);
             $this->assertContains('ZipArchive::close', $e->getMessage());
         }
         // This is crazy, but it shows how some PHP versions do return true.
@@ -472,7 +472,7 @@ class core_files_zip_packer_testcase extends advanced_testcase implements file_p
             $this->assertFalse($result);
         } catch (Exception $e) {
             // But others do insist into returning true (5.6.13...). Only can accept them.
-            $this->assertInstanceOf('PHPUnit_Framework_ExpectationFailedException', $e);
+            $this->assertInstanceOf('PHPUnit\Framework\ExpectationFailedException', $e);
             $this->assertTrue($result);
         }
         $this->assertFileNotExists($archive);
@@ -523,6 +523,24 @@ class core_files_zip_packer_testcase extends advanced_testcase implements file_p
         $zip_archive->close();
 
         unlink($archive);
+    }
+
+    /**
+     * Test opening an encrypted archive
+     */
+    public function test_open_encrypted_archive() {
+        $this->resetAfterTest();
+
+        // The archive contains a single encrypted "hello.txt" file.
+        $archive = __DIR__ . '/fixtures/passwordis1.zip';
+
+        /** @var zip_packer $packer */
+        $packer = get_file_packer('application/zip');
+        $result = $packer->extract_to_pathname($archive, make_temp_directory('zip'));
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('hello.txt', $result);
+        $this->assertEquals('Can not read file from zip archive', $result['hello.txt']);
     }
 
     /**

@@ -5,8 +5,6 @@ namespace Box\Spout\Reader\XLSX\Helper;
 /**
  * Class DateFormatHelper
  * This class provides helper functions to format Excel dates
- *
- * @package Box\Spout\Reader\XLSX\Helper
  */
 class DateFormatHelper
 {
@@ -62,7 +60,9 @@ class DateFormatHelper
     public static function toPHPDateFormat($excelDateFormat)
     {
         // Remove brackets potentially present at the beginning of the format string
-        $dateFormat = preg_replace('/^(\[\$[^\]]+?\])/i', '', $excelDateFormat);
+        // and text portion of the format at the end of it (starting with ";")
+        // See §18.8.31 of ECMA-376 for more detail.
+        $dateFormat = preg_replace('/^(?:\[\$[^\]]+?\])?([^;]*).*/', '$1', $excelDateFormat);
 
         // Double quotes are used to escape characters that must not be interpreted.
         // For instance, ["Day " dd] should result in "Day 13" and we should not try to interpret "D", "a", "y"
@@ -102,9 +102,10 @@ class DateFormatHelper
         // Finally, to have the date format compatible with the DateTime::format() function, we need to escape
         // all characters that are inside double quotes (and double quotes must be removed).
         // For instance, ["Day " dd] should become [\D\a\y\ dd]
-        $phpDateFormat = preg_replace_callback('/"(.+?)"/', function($matches) {
+        $phpDateFormat = preg_replace_callback('/"(.+?)"/', function ($matches) {
             $stringToEscape = $matches[1];
             $letters = preg_split('//u', $stringToEscape, -1, PREG_SPLIT_NO_EMPTY);
+
             return '\\' . implode('\\', $letters);
         }, $phpDateFormat);
 

@@ -13,9 +13,9 @@ $CFG->dbpass    = 'Nguyenleminh@1234';
 $CFG->prefix    = 'mdl_';
 $CFG->dboptions = array (
   'dbpersist' => 0,
-  'dbport' => 3306,
+  'dbport' => '',
   'dbsocket' => '',
-  'dbcollation' => 'utf8mb4_general_ci',
+  'dbcollation' => 'utf8mb4_0900_ai_ci',
 );
 
 $CFG->wwwroot   = 'http://tienganhthaydao.com';

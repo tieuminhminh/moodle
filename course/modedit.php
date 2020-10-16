@@ -143,7 +143,12 @@ $mform->set_data($data);
 
 if ($mform->is_cancelled()) {
     if ($return && !empty($cm->id)) {
-        redirect("$CFG->wwwroot/mod/$module->name/view.php?id=$cm->id");
+        $urlparams = [
+            'id' => $cm->id, // We always need the activity id.
+            'forceview' => 1, // Stop file downloads in resources.
+        ];
+        $activityurl = new moodle_url("/mod/$module->name/view.php", $urlparams);
+        redirect($activityurl);
     } else {
         redirect(course_get_url($course, $cw->section, array('sr' => $sectionreturn)));
     }
@@ -157,11 +162,11 @@ if ($mform->is_cancelled()) {
     }
 
     if (isset($fromform->submitbutton)) {
+        $url = new moodle_url("/mod/$module->name/view.php", array('id' => $fromform->coursemodule, 'forceview' => 1));
         if (empty($fromform->showgradingmanagement)) {
-            redirect("$CFG->wwwroot/mod/$module->name/view.php?id=$fromform->coursemodule");
+            redirect($url);
         } else {
-            $returnurl = new moodle_url("/mod/$module->name/view.php", array('id' => $fromform->coursemodule));
-            redirect($fromform->gradingman->get_management_url($returnurl));
+            redirect($fromform->gradingman->get_management_url($url));
         }
     } else {
         redirect(course_get_url($course, $cw->section, array('sr' => $sectionreturn)));

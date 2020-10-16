@@ -58,7 +58,7 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element implements templatab
     /** @var array options provided to initalize filepicker */
     protected $_options = array('subdirs' => 0, 'maxbytes' => 0, 'maxfiles' => 0, 'changeformat' => 0,
             'areamaxbytes' => FILE_AREA_MAX_BYTES_UNLIMITED, 'context' => null, 'noclean' => 0, 'trusttext' => 0,
-            'return_types' => 15, 'enable_filemanagement' => true, 'autosave' => true);
+            'return_types' => 15, 'enable_filemanagement' => true, 'removeorphaneddrafts' => false, 'autosave' => true);
     // 15 is $_options['return_types'] = FILE_INTERNAL | FILE_EXTERNAL | FILE_REFERENCE | FILE_CONTROLLED_LINK.
 
     /** @var array values for editor */
@@ -389,6 +389,20 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element implements templatab
             $subtitle_options->areamaxbytes  = $this->_options['areamaxbytes'];
             $subtitle_options->env = 'editor';
             $subtitle_options->itemid = $draftitemid;
+
+            if (has_capability('moodle/h5p:deploy', $ctx)) {
+                // Only set H5P Plugin settings if the user can deploy new H5P content.
+                // H5P plugin.
+                $args->accepted_types = array('.h5p');
+                $h5poptions = initialise_filepicker($args);
+                $h5poptions->context = $ctx;
+                $h5poptions->client_id = uniqid();
+                $h5poptions->maxbytes  = $this->_options['maxbytes'];
+                $h5poptions->areamaxbytes  = $this->_options['areamaxbytes'];
+                $h5poptions->env = 'editor';
+                $h5poptions->itemid = $draftitemid;
+                $fpoptions['h5p'] = $h5poptions;
+            }
 
             $fpoptions['image'] = $image_options;
             $fpoptions['media'] = $media_options;

@@ -143,7 +143,9 @@ class mod_lesson_external extends external_api {
                 $lessonrecord = self::get_lesson_summary_for_exporter($lessonrecord);
 
                 $exporter = new lesson_summary_exporter($lessonrecord, array('context' => $context));
-                $returnedlessons[] = $exporter->export($PAGE->get_renderer('core'));
+                $lesson = $exporter->export($PAGE->get_renderer('core'));
+                $lesson->name = external_format_string($lesson->name, $context);
+                $returnedlessons[] = $lesson;
             }
         }
         $result = array();
@@ -1819,6 +1821,10 @@ class mod_lesson_external extends external_api {
         }
 
         list($answerpages, $userstats) = lesson_get_user_detailed_report_data($lesson, $userid, $params['lessonattempt']);
+        // Convert page object to page record.
+        foreach ($answerpages as $answerp) {
+            $answerp->page = self::get_page_fields($answerp->page);
+        }
 
         $result = array(
             'answerpages' => $answerpages,
@@ -1840,6 +1846,7 @@ class mod_lesson_external extends external_api {
                 'answerpages' => new external_multiple_structure(
                     new external_single_structure(
                         array(
+                            'page' => self::get_page_structure(VALUE_OPTIONAL),
                             'title' => new external_value(PARAM_RAW, 'Page title.'),
                             'contents' => new external_value(PARAM_RAW, 'Page contents.'),
                             'qtype' => new external_value(PARAM_TEXT, 'Identifies the page type of this page.'),

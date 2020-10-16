@@ -29,14 +29,12 @@ require_once($CFG->dirroot.'/user/lib.php');
 require_once('change_password_form.php');
 require_once($CFG->libdir.'/authlib.php');
 require_once($CFG->dirroot.'/webservice/lib.php');
+require_once('lib.php');
 
 $id     = optional_param('id', SITEID, PARAM_INT); // current course
 $return = optional_param('return', 0, PARAM_BOOL); // redirect after password change
 
 $systemcontext = context_system::instance();
-
-//HTTPS is required in this page when $CFG->loginhttps enabled
-$PAGE->https_required();
 
 $PAGE->set_url('/login/change_password.php', array('id'=>$id));
 
@@ -64,7 +62,7 @@ if (!$course = $DB->get_record('course', array('id'=>$id))) {
 // require proper login; guest user can not change password
 if (!isloggedin() or isguestuser()) {
     if (empty($SESSION->wantsurl)) {
-        $SESSION->wantsurl = $CFG->httpswwwroot.'/login/change_password.php';
+        $SESSION->wantsurl = $CFG->wwwroot.'/login/change_password.php';
     }
     redirect(get_login_url());
 }
@@ -136,6 +134,9 @@ if ($mform->is_cancelled()) {
 
     $strpasswordchanged = get_string('passwordchanged');
 
+    // Plugins can perform post password change actions once data has been validated.
+    core_login_post_change_password_requests($data);
+
     $fullname = fullname($USER, true);
 
     $PAGE->set_title($strpasswordchanged);
@@ -147,9 +148,6 @@ if ($mform->is_cancelled()) {
     echo $OUTPUT->footer();
     exit;
 }
-
-// make sure we really are on the https page when https login required
-$PAGE->verify_https_required();
 
 $strchangepassword = get_string('changepassword');
 

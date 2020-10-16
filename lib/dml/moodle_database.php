@@ -594,19 +594,29 @@ abstract class moodle_database {
             return;
         }
         if (CLI_SCRIPT) {
-            echo "--------------------------------\n";
-            echo $sql."\n";
+            $separator = "--------------------------------\n";
+            echo $separator;
+            echo "{$sql}\n";
             if (!is_null($params)) {
-                echo "[".var_export($params, true)."]\n";
+                echo "[" . var_export($params, true) . "]\n";
             }
-            echo "--------------------------------\n";
+            echo $separator;
+        } else if (AJAX_SCRIPT) {
+            $separator = "--------------------------------";
+            error_log($separator);
+            error_log($sql);
+            if (!is_null($params)) {
+                error_log("[" . var_export($params, true) . "]");
+            }
+            error_log($separator);
         } else {
-            echo "<hr />\n";
-            echo s($sql)."\n";
+            $separator = "<hr />\n";
+            echo $separator;
+            echo s($sql) . "\n";
             if (!is_null($params)) {
-                echo "[".s(var_export($params, true))."]\n";
+                echo "[" . s(var_export($params, true)) . "]\n";
             }
-            echo "<hr />\n";
+            echo $separator;
         }
     }
 
@@ -623,6 +633,9 @@ abstract class moodle_database {
         if (CLI_SCRIPT) {
             echo $message;
             echo "--------------------------------\n";
+        } else if (AJAX_SCRIPT) {
+            error_log($message);
+            error_log("--------------------------------");
         } else {
             echo s($message);
             echo "<hr />\n";
@@ -821,7 +834,23 @@ abstract class moodle_database {
      * @return string The sql with tablenames being prefixed with $CFG->prefix
      */
     protected function fix_table_names($sql) {
-        return preg_replace('/\{([a-z][a-z0-9_]*)\}/', $this->prefix.'$1', $sql);
+        return preg_replace_callback(
+            '/\{([a-z][a-z0-9_]*)\}/',
+            function($matches) {
+                return $this->fix_table_name($matches[1]);
+            },
+            $sql
+        );
+    }
+
+    /**
+     * Adds the prefix to the table name.
+     *
+     * @param string $tablename The table name
+     * @return string The prefixed table name
+     */
+    protected function fix_table_name($tablename) {
+        return $this->prefix . $tablename;
     }
 
     /**
@@ -1067,7 +1096,7 @@ abstract class moodle_database {
      * Returns detailed information about columns in table. This information is cached internally.
      * @param string $table The table's name.
      * @param bool $usecache Flag to use internal cacheing. The default is true.
-     * @return array of database_column_info objects indexed with column names
+     * @return database_column_info[] of database_column_info objects indexed with column names
      */
     public abstract function get_columns($table, $usecache=true);
 
@@ -2328,10 +2357,12 @@ abstract class moodle_database {
     /**
      * Returns the driver specific syntax (SQL part) for matching regex positively or negatively (inverted matching).
      * Eg: 'REGEXP':'NOT REGEXP' or '~*' : '!~*'
+     *
      * @param bool $positivematch
+     * @param bool $casesensitive
      * @return string or empty if not supported
      */
-    public function sql_regex($positivematch=true) {
+    public function sql_regex($positivematch = true, $casesensitive = false) {
         return '';
     }
 
@@ -2671,5 +2702,15 @@ abstract class moodle_database {
      */
     public function perf_get_queries_time() {
         return $this->queriestime;
+    }
+
+    /**
+     * Whether the database is able to support full-text search or not.
+     *
+     * @return bool
+     */
+    public function is_fulltext_search_supported() {
+        // No support unless specified.
+        return false;
     }
 }

@@ -31,6 +31,8 @@ use \core_privacy\local\request\transform;
 use \core_privacy\local\request\contextlist;
 use \core_privacy\local\request\approved_contextlist;
 use \core_privacy\local\request\writer;
+use core_privacy\local\request\userlist;
+use \core_privacy\local\request\approved_userlist;
 
 /**
  * Privacy class for requesting user data.
@@ -39,7 +41,10 @@ use \core_privacy\local\request\writer;
  * @copyright  2018 Adrian Greeve <adrian@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider implements \core_privacy\local\metadata\provider, \core_privacy\local\request\subsystem\provider {
+class provider implements
+        \core_privacy\local\metadata\provider,
+        \core_privacy\local\request\core_userlist_provider,
+        \core_privacy\local\request\subsystem\provider {
 
     /**
      * Returns information about the user data stored in this component.
@@ -47,7 +52,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  collection $collection A list of information about this component
      * @return collection The collection object filled out with information about this component.
      */
-    public static function get_metadata(collection $collection) {
+    public static function get_metadata(collection $collection) : collection {
         $userfields = [
             'id' => 'privacy:metadata:id',
             'auth' => 'privacy:metadata:auth',
@@ -186,7 +191,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param   int $userid The user to search.
      * @return  contextlist $contextlist The contextlist containing the list of contexts used in this plugin.
      */
-    public static function get_contexts_for_userid($userid) {
+    public static function get_contexts_for_userid(int $userid) : contextlist {
         $params = ['userid' => $userid, 'contextuser' => CONTEXT_USER];
         $sql = "SELECT id
                   FROM {context}
@@ -194,6 +199,21 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
         $contextlist = new contextlist();
         $contextlist->add_from_sql($sql, $params);
         return $contextlist;
+    }
+
+    /**
+     * Get the list of users within a specific context.
+     *
+     * @param userlist $userlist The userlist containing the list of users who have data in this context/plugin combination.
+     */
+    public static function get_users_in_context(userlist $userlist) {
+        $context = $userlist->get_context();
+
+        if (!$context instanceof \context_user) {
+            return;
+        }
+
+        $userlist->add_user($context->instanceid);
     }
 
     /**
@@ -226,6 +246,20 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
     }
 
     /**
+     * Delete multiple users within a single context.
+     *
+     * @param approved_userlist $userlist The approved context and user information to delete information for.
+     */
+    public static function delete_data_for_users(approved_userlist $userlist) {
+
+        $context = $userlist->get_context();
+
+        if ($context instanceof \context_user) {
+            static::delete_user_data($context->instanceid, $context);
+        }
+    }
+
+    /**
      * Delete all user data for the specified user, in the specified contexts.
      *
      * @param approved_contextlist $contextlist The approved contexts and user information to delete information for.
@@ -245,7 +279,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  int      $userid  The user ID to delete
      * @param  \context $context The user context
      */
-    protected static function delete_user_data($userid, \context $context) {
+    protected static function delete_user_data(int $userid, \context $context) {
         global $DB;
 
         // Delete password history.
@@ -351,10 +385,10 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
             'calendartype' => $user->calendartype,
             'theme' => $user->theme,
             'timezone' => $user->timezone,
-            'firstaccess' => transform::datetime($user->firstaccess),
-            'lastaccess' => transform::datetime($user->lastaccess),
-            'lastlogin' => transform::datetime($user->lastlogin),
-            'currentlogin' => $user->currentlogin,
+            'firstaccess' => $user->firstaccess ? transform::datetime($user->firstaccess) : null,
+            'lastaccess' => $user->lastaccess ? transform::datetime($user->lastaccess) : null,
+            'lastlogin' => $user->lastlogin ? transform::datetime($user->lastlogin) : null,
+            'currentlogin' => $user->currentlogin ? transform::datetime($user->currentlogin) : null,
             'lastip' => $user->lastip,
             'secret' => $user->secret,
             'picture' => $user->picture,
@@ -392,7 +426,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  int $userid The user ID.
      * @param  \context $context The user context.
      */
-    protected static function export_lastaccess($userid, \context $context) {
+    protected static function export_lastaccess(int $userid, \context $context) {
         global $DB;
         $sql = "SELECT c.id, c.fullname, ul.timeaccess
                   FROM {user_lastaccess} ul
@@ -417,7 +451,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  int $userid The user ID
      * @param  \context $context Context for this user.
      */
-    protected static function export_password_resets($userid, \context $context) {
+    protected static function export_password_resets(int $userid, \context $context) {
         global $DB;
         $records = $DB->get_records('user_password_resets', ['userid' => $userid]);
         if (!empty($records)) {
@@ -437,7 +471,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  int $userid The user ID.
      * @param  \context $context Context for this user.
      */
-    protected static function export_user_devices($userid, \context $context) {
+    protected static function export_user_devices(int $userid, \context $context) {
         global $DB;
         $records = $DB->get_records('user_devices', ['userid' => $userid]);
         if (!empty($records)) {
@@ -462,7 +496,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  int    $userid  The user ID.
      * @param  \context $context The context object
      */
-    protected static function export_course_requests($userid, \context $context) {
+    protected static function export_course_requests(int $userid, \context $context) {
         global $DB;
         $sql = "SELECT cr.shortname, cr.fullname, cr.summary, cc.name AS category, cr.reason
                   FROM {course_request} cr
@@ -481,7 +515,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param int $userid The user ID that we are getting the password history for.
      * @param \context $context the user context.
      */
-    protected static function export_password_history($userid, \context $context) {
+    protected static function export_password_history(int $userid, \context $context) {
         global $DB;
 
         // Just provide a count of how many entries we have.
@@ -498,7 +532,7 @@ class provider implements \core_privacy\local\metadata\provider, \core_privacy\l
      * @param  int $userid The user ID.
      * @param  \context $context The context for this user.
      */
-    protected static function export_user_session_data($userid, \context $context) {
+    protected static function export_user_session_data(int $userid, \context $context) {
         global $DB, $SESSION;
 
         $records = $DB->get_records('sessions', ['userid' => $userid]);

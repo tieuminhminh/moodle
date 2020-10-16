@@ -47,6 +47,7 @@ class restore_forum_activity_structure_step extends restore_activity_structure_s
             $paths[] = new restore_path_element('forum_digest', '/activity/forum/digests/digest');
             $paths[] = new restore_path_element('forum_read', '/activity/forum/readposts/read');
             $paths[] = new restore_path_element('forum_track', '/activity/forum/trackedprefs/track');
+            $paths[] = new restore_path_element('forum_grade', '/activity/forum/grades/grade');
         }
 
         // Return the paths wrapped into standard activity structure
@@ -60,6 +61,16 @@ class restore_forum_activity_structure_step extends restore_activity_structure_s
         $oldid = $data->id;
         $data->course = $this->get_courseid();
 
+        // Any changes to the list of dates that needs to be rolled should be same during course restore and course reset.
+        // See MDL-9367.
+        if (!isset($data->duedate)) {
+            $data->duedate = 0;
+        }
+        $data->duedate = $this->apply_date_offset($data->duedate);
+        if (!isset($data->cutoffdate)) {
+            $data->cutoffdate = 0;
+        }
+        $data->cutoffdate = $this->apply_date_offset($data->cutoffdate);
         $data->assesstimestart = $this->apply_date_offset($data->assesstimestart);
         $data->assesstimefinish = $this->apply_date_offset($data->assesstimefinish);
         if ($data->scale < 0) { // scale found, get mapping
@@ -83,7 +94,6 @@ class restore_forum_activity_structure_step extends restore_activity_structure_s
         $data->course = $this->get_courseid();
 
         $data->forum = $this->get_new_parentid('forum');
-        $data->timemodified = $this->apply_date_offset($data->timemodified);
         $data->timestart = $this->apply_date_offset($data->timestart);
         $data->timeend = $this->apply_date_offset($data->timeend);
         $data->userid = $this->get_mappingid('user', $data->userid);
@@ -101,14 +111,13 @@ class restore_forum_activity_structure_step extends restore_activity_structure_s
         $oldid = $data->id;
 
         $data->discussion = $this->get_new_parentid('forum_discussion');
-        $data->created = $this->apply_date_offset($data->created);
-        $data->modified = $this->apply_date_offset($data->modified);
         $data->userid = $this->get_mappingid('user', $data->userid);
         // If post has parent, map it (it has been already restored)
         if (!empty($data->parent)) {
             $data->parent = $this->get_mappingid('forum_post', $data->parent);
         }
 
+        \mod_forum\local\entities\post::add_message_counts($data);
         $newitemid = $DB->insert_record('forum_posts', $data);
         $this->set_mapping('forum_post', $oldid, $newitemid, true);
 
@@ -148,8 +157,6 @@ class restore_forum_activity_structure_step extends restore_activity_structure_s
         }
         $data->rating = $data->value;
         $data->userid = $this->get_mappingid('user', $data->userid);
-        $data->timecreated = $this->apply_date_offset($data->timecreated);
-        $data->timemodified = $this->apply_date_offset($data->timemodified);
 
         // We need to check that component and ratingarea are both set here.
         if (empty($data->component)) {
@@ -206,6 +213,27 @@ class restore_forum_activity_structure_step extends restore_activity_structure_s
         $data->userid = $this->get_mappingid('user', $data->userid);
 
         $newitemid = $DB->insert_record('forum_digests', $data);
+    }
+
+    protected function process_forum_grade($data) {
+        global $DB;
+
+        $data = (object)$data;
+        $oldid = $data->id;
+
+        $data->forum = $this->get_new_parentid('forum');
+
+        $data->userid = $this->get_mappingid('user', $data->userid);
+
+        // We want to ensure the current user has an ID that we can associate to a grade.
+        if ($data->userid != 0) {
+            $newitemid = $DB->insert_record('forum_grades', $data);
+
+            // Note - the old contextid is required in order to be able to restore files stored in
+            // sub plugin file areas attached to the gradeid.
+            $this->set_mapping('grade', $oldid, $newitemid, false, null, $this->task->get_old_contextid());
+            $this->set_mapping(restore_gradingform_plugin::itemid_mapping('forum'), $oldid, $newitemid);
+        }
     }
 
     protected function process_forum_read($data) {

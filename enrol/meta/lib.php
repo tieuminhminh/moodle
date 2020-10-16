@@ -96,28 +96,6 @@ class enrol_meta_plugin extends enrol_plugin {
     }
 
     /**
-     * Gets an array of the user enrolment actions
-     *
-     * @param course_enrolment_manager $manager
-     * @param stdClass $ue A user enrolment object
-     * @return array An array of user_enrolment_actions
-     */
-    public function get_user_enrolment_actions(course_enrolment_manager $manager, $ue) {
-        $actions = array();
-        $context = $manager->get_context();
-        $instance = $ue->enrolmentinstance;
-        $params = $manager->get_moodlepage()->url->params();
-        $params['ue'] = $ue->id;
-        if ($this->allow_unenrol_user($instance, $ue) && has_capability('enrol/meta:unenrol', $context)) {
-            $url = new moodle_url('/enrol/unenroluser.php', $params);
-            $strunenrol = get_string('unenrol', 'enrol');
-            $actions[] = new user_enrolment_action(new pix_icon('t/delete', $strunenrol),
-                $strunenrol, $url, array('class' => 'unenrollink', 'rel' => $ue->id));
-        }
-        return $actions;
-    }
-
-    /**
      * Called after updating/inserting course.
      *
      * @param bool $inserted true if course just inserted
@@ -142,10 +120,12 @@ class enrol_meta_plugin extends enrol_plugin {
         require_once("$CFG->dirroot/enrol/meta/locallib.php");
 
         // Support creating multiple at once.
-        if (is_array($fields['customint1'])) {
+        if (isset($fields['customint1']) && is_array($fields['customint1'])) {
             $courses = array_unique($fields['customint1']);
-        } else {
+        } else if (isset($fields['customint1'])) {
             $courses = array($fields['customint1']);
+        } else {
+            $courses = array(null); // Strange? Yes, but that's how it's working or instance is not created ever.
         }
         foreach ($courses as $courseid) {
             if (!empty($fields['customint2']) && $fields['customint2'] == ENROL_META_CREATE_GROUP) {
@@ -203,17 +183,6 @@ class enrol_meta_plugin extends enrol_plugin {
 
         require_once("$CFG->dirroot/enrol/meta/locallib.php");
         enrol_meta_sync($instance->courseid);
-    }
-
-    /**
-     * Called for all enabled enrol plugins that returned true from is_cron_required().
-     * @return void
-     */
-    public function cron() {
-        global $CFG;
-
-        require_once("$CFG->dirroot/enrol/meta/locallib.php");
-        enrol_meta_sync();
     }
 
     /**

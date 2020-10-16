@@ -3,7 +3,6 @@
 // Well -> Panel -> Card. We skipped panel (BS3) so lets just support well and card.
 .well {
     @extend .card;
-    @extend .card-block;
 }
 
 // Some things just got renamed.
@@ -18,8 +17,6 @@
 .btn-default {
     @extend .btn-secondary;
 }
-
-// Labels and badges.
 
 .label {
     @extend .tag;
@@ -39,28 +36,6 @@
 }
 
 .label-important {
-    @include tag-variant($tag-danger-bg);
-}
-
-.badge {
-    @extend .tag;
-    @include tag-variant($tag-default-bg);
-    @include border-radius($font-size-root / 2);
-}
-
-.badge-success {
-    @include tag-variant($tag-success-bg);
-}
-
-.badge-info {
-    @include tag-variant($tag-info-bg);
-}
-
-.badge-warning {
-    @include tag-variant($tag-warning-bg);
-}
-
-.badge-important {
     @include tag-variant($tag-danger-bg);
 }
 

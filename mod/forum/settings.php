@@ -54,6 +54,11 @@ if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configtext('forum_maxattachments', get_string('maxattachments', 'forum'),
                        get_string('configmaxattachments', 'forum'), 9, PARAM_INT));
 
+    // Default Subscription mode setting.
+    $options = forum_get_subscriptionmode_options();
+    $settings->add(new admin_setting_configselect('forum_subscription', get_string('subscriptionmode', 'forum'),
+        get_string('configsubscriptiontype', 'forum'), FORUM_CHOOSESUBSCRIBE, $options));
+
     // Default Read Tracking setting.
     $options = array();
     $options[FORUM_TRACKING_OPTIONAL] = get_string('trackingoptional', 'forum');
@@ -109,6 +114,7 @@ if ($ADMIN->fulltree) {
         );
         $settings->add(new admin_setting_configselect('forum_rsstype', get_string('rsstypedefault', 'forum'),
                 get_string('configrsstypedefault', 'forum'), 0, $options));
+        $settings->hide_if('forum_rsstype', 'forum_enablerssfeeds', 'neq', '1');
 
         $options = array(
             0  => '0',
@@ -127,6 +133,7 @@ if ($ADMIN->fulltree) {
         );
         $settings->add(new admin_setting_configselect('forum_rssarticles', get_string('rssarticles', 'forum'),
                 get_string('configrssarticlesdefault', 'forum'), 0, $options));
+        $settings->hide_if('forum_rssarticles', 'forum_enablerssfeeds', 'neq', '1');
     }
 
     $settings->add(new admin_setting_configcheckbox('forum_enabletimedposts', get_string('timedposts', 'forum'),

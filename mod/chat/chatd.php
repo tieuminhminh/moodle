@@ -895,7 +895,9 @@ if (strpos($commandline, '-') === false) {
     $numswitches = count($switches);
 
     // Fancy way to give a "hyphen" boolean flag to each "switch".
-    $switches = array_map(create_function('$x', 'return array("str" => $x, "hyphen" => (substr($x, 0, 1) == "-"));'), $switches);
+    $switches = array_map(function($x) {
+        return array("str" => $x, "hyphen" => (substr($x, 0, 1) == "-"));
+    }, $switches);
 
     for ($i = 0; $i < $numswitches; ++$i) {
 
@@ -1005,7 +1007,7 @@ while (true) {
                         if (!preg_match('/beep=([^&]*)[& ]/', $data, $info)) {
                             $daemon->trace('Beep sidekick did not contain a valid userid', E_USER_WARNING);
                             $daemon->dismiss_ufo($handle, true, 'Request with malformed data; connection closed');
-                            continue;
+                            continue 2;
                         } else {
                             $customdata = array('beep' => intval($info[1]));
                         }
@@ -1015,7 +1017,7 @@ while (true) {
                         if (!preg_match('/chat_message=([^&]*)[& ]chat_msgidnr=([^&]*)[& ]/', $data, $info)) {
                             $daemon->trace('Message sidekick did not contain a valid message', E_USER_WARNING);
                             $daemon->dismiss_ufo($handle, true, 'Request with malformed data; connection closed');
-                            continue;
+                            continue 2;
                         } else {
                             $customdata = array('message' => $info[1], 'index' => $info[2]);
                         }
@@ -1023,7 +1025,7 @@ while (true) {
                     default:
                         $daemon->trace('UFO with '.$handle.': Request with unknown type; connection closed', E_USER_WARNING);
                         $daemon->dismiss_ufo($handle, true, 'Request with unknown type; connection closed');
-                        continue;
+                        continue 2;
                     break;
                 }
 

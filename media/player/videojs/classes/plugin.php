@@ -75,6 +75,7 @@ class media_videojs_plugin extends core_media_player_native {
         // Currently Flash in VideoJS does not support responsive layout. If Flash is enabled try to guess
         // if HTML5 player will be engaged for the user and then set it to responsive.
         $responsive = (get_config('media_videojs', 'useflash') && !$this->youtube) ? null : true;
+        $flashtech = false;
 
         // Build list of source tags.
         foreach ($urls as $url) {
@@ -84,6 +85,14 @@ class media_videojs_plugin extends core_media_player_native {
                 // Fix for VideoJS/Chrome bug https://github.com/videojs/video.js/issues/423 .
                 $mimetype = 'video/mp4';
             }
+            // If this is RTMP stream, adjust mimetype to those VideoJS suggests to use (either flash or mp4).
+            if ($url->get_scheme() === 'rtmp') {
+                if ($mimetype === 'video/x-flv') {
+                    $mimetype = 'rtmp/flv';
+                } else {
+                    $mimetype = 'rtmp/mp4';
+                }
+            }
             $source = html_writer::empty_tag('source', array('src' => $url, 'type' => $mimetype));
             $sources[] = $source;
             if ($isaudio === null) {
@@ -91,6 +100,10 @@ class media_videojs_plugin extends core_media_player_native {
             }
             if ($responsive === null) {
                 $responsive = core_useragent::supports_html5($extension);
+            }
+            if (($url->get_scheme() === 'rtmp' || !core_useragent::supports_html5($extension))
+                    && get_config('media_videojs', 'useflash')) {
+                $flashtech = true;
             }
         }
         $sources = implode("\n", $sources);
@@ -102,8 +115,16 @@ class media_videojs_plugin extends core_media_player_native {
         if ($this->youtube) {
             $datasetup[] = '"techOrder": ["youtube"]';
             $datasetup[] = '"sources": [{"type": "video/youtube", "src":"' . $urls[0] . '"}]';
+
+            // Check if we have a time parameter.
+            if ($time = $urls[0]->get_param('t')) {
+                $datasetup[] = '"youtube": {"start": "' . self::get_start_time($time) . '"}';
+            }
+
             $sources = ''; // Do not specify <source> tags - it may confuse browser.
             $isaudio = false; // Just in case.
+        } else if ($flashtech) {
+            $datasetup[] = '"techOrder": ["flash", "html5"]';
         }
 
         // Add a language.
@@ -134,9 +155,10 @@ class media_videojs_plugin extends core_media_player_native {
         // which is BEFORE we have a chance to load any additional libraries (youtube).
         // The data-setup-lazy is just a tag name that video.js does not recognise so we can manually initialise
         // it when we are sure the dependencies are loaded.
+        static $playercounter = 1;
         $attributes = [
             'data-setup-lazy' => '{' . join(', ', $datasetup) . '}',
-            'id' => 'id_videojs_' . uniqid(),
+            'id' => 'id_videojs_' . uniqid() . '_' . $playercounter++,
             'class' => get_config('media_videojs', $isaudio ? 'audiocssclass' : 'videocssclass')
         ];
 
@@ -202,19 +224,45 @@ class media_videojs_plugin extends core_media_player_native {
         parent::pick_video_size($width, $height);
     }
 
+    /**
+     * Method to convert Youtube time parameter string, which can contain human readable time
+     * intervals such as '1h5m', '1m10s', etc or a numeric seconds value
+     *
+     * @param string $timestr
+     * @return int
+     */
+    protected static function get_start_time(string $timestr): int {
+        if (is_numeric($timestr)) {
+            // We can return the time string itself if it's already numeric.
+            return (int) $timestr;
+        }
+
+        try {
+            // Parse the time string as an ISO 8601 time interval.
+            $timeinterval = new DateInterval('PT' . core_text::strtoupper($timestr));
+
+            return ($timeinterval->h * HOURSECS) + ($timeinterval->i * MINSECS) + $timeinterval->s;
+        } catch (Exception $ex) {
+            // Invalid time interval.
+            return 0;
+        }
+    }
+
     public function get_supported_extensions() {
         global $CFG;
         require_once($CFG->libdir . '/filelib.php');
         if ($this->extensions === null) {
+            // Get extensions set by user in UI config.
             $filetypes = preg_split('/\s*,\s*/',
                 strtolower(trim(get_config('media_videojs', 'videoextensions') . ',' .
                 get_config('media_videojs', 'audioextensions'))));
+
             $this->extensions = file_get_typegroup('extension', $filetypes);
             if ($this->extensions && !get_config('media_videojs', 'useflash')) {
-                // If Flash is disabled only return extensions natively supported by browsers.
-                $nativeextensions = array_merge(file_get_typegroup('extension', 'html_video'),
-                    file_get_typegroup('extension', 'html_audio'));
-                $this->extensions = array_intersect($this->extensions, $nativeextensions);
+                // If Flash is disabled get extensions supported by player that don't rely on flash.
+                $supportedextensions = array_merge(file_get_typegroup('extension', 'html_video'),
+                    file_get_typegroup('extension', 'html_audio'), file_get_typegroup('extension', 'media_source'));
+                $this->extensions = array_intersect($this->extensions, $supportedextensions);
             }
         }
         return $this->extensions;
@@ -234,15 +282,37 @@ class media_videojs_plugin extends core_media_player_native {
             }
         }
 
-        if (!get_config('media_videojs', 'useflash')) {
-            return parent::list_supported_urls($urls, $options);
-        }
-        // If Flash fallback is enabled we can not check if/when browser supports flash.
         $extensions = $this->get_supported_extensions();
+        $rtmpallowed = get_config('media_videojs', 'rtmp') && get_config('media_videojs', 'useflash');
         foreach ($urls as $url) {
-            $ext = core_media_manager::instance()->get_extension($url);
-            if (in_array('.' . $ext, $extensions)) {
+            // If RTMP support is disabled, skip the URL that is using RTMP (which
+            // might have been picked to the list by its valid extension).
+            if (!$rtmpallowed && ($url->get_scheme() === 'rtmp')) {
+                continue;
+            }
+
+            // If RTMP support is allowed, URL with RTMP scheme is supported irrespective to extension.
+            if ($rtmpallowed && ($url->get_scheme() === 'rtmp')) {
                 $result[] = $url;
+                continue;
+            }
+
+            $ext = '.' . core_media_manager::instance()->get_extension($url);
+            // Handle HLS and MPEG-DASH if supported.
+            $isstream = in_array($ext, file_get_typegroup('extension', 'media_source'));
+            if ($isstream && in_array($ext, $extensions) && core_useragent::supports_media_source_extensions($ext)) {
+                $result[] = $url;
+                continue;
+            }
+
+            if (!get_config('media_videojs', 'useflash')) {
+                return parent::list_supported_urls($urls, $options);
+            } else {
+                // If Flash fallback is enabled we can not check if/when browser supports flash.
+                // We assume it will be able to handle any other extensions that player supports.
+                if (in_array($ext, $extensions)) {
+                    $result[] = $url;
+                }
             }
         }
         return $result;
@@ -304,14 +374,23 @@ class media_videojs_plugin extends core_media_player_native {
         if (get_config('media_videojs', 'youtube')) {
             $supports .= ($supports ? '<br>' : '') . get_string('youtube', 'media_videojs');
         }
+        if (get_config('media_videojs', 'rtmp') && get_config('media_videojs', 'useflash')) {
+            $supports .= ($supports ? '<br>' : '') . get_string('rtmp', 'media_videojs');
+        }
         return $supports;
     }
 
     public function get_embeddable_markers() {
         $markers = parent::get_embeddable_markers();
+        // Add YouTube support if enabled.
         if (get_config('media_videojs', 'youtube')) {
             $markers = array_merge($markers, array('youtube.com', 'youtube-nocookie.com', 'youtu.be', 'y2u.be'));
         }
+        // Add RTMP support if enabled.
+        if (get_config('media_videojs', 'rtmp') && get_config('media_videojs', 'useflash')) {
+            $markers[] = 'rtmp://';
+        }
+
         return $markers;
     }
 

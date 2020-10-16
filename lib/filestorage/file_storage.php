@@ -598,7 +598,7 @@ class file_storage {
      * @param int $contextid context ID
      * @param string $component component
      * @param mixed $filearea file area/s, you cannot specify multiple fileareas as well as an itemid
-     * @param int $itemid item ID or all files if not specified
+     * @param int|int[]|false $itemid item ID(s) or all files if not specified
      * @param string $sort A fragment of SQL to use for sorting
      * @param bool $includedirs whether or not include directories
      * @param int $updatedsince return files updated since this time
@@ -617,8 +617,10 @@ class file_storage {
         if ($itemid !== false && is_array($filearea)) {
             throw new coding_exception('You cannot specify multiple fileareas as well as an itemid.');
         } else if ($itemid !== false) {
-            $itemidsql = ' AND f.itemid = :itemid ';
-            $conditions['itemid'] = $itemid;
+            $itemids = is_array($itemid) ? $itemid : [$itemid];
+            list($itemidinorequalsql, $itemidconditions) = $DB->get_in_or_equal($itemids, SQL_PARAMS_NAMED);
+            $itemidsql = " AND f.itemid {$itemidinorequalsql}";
+            $conditions = array_merge($conditions, $itemidconditions);
         } else {
             $itemidsql = '';
         }
@@ -1318,7 +1320,7 @@ class file_storage {
         $newrecord->status       = empty($filerecord->status) ? 0 : $filerecord->status;
         $newrecord->sortorder    = $filerecord->sortorder;
 
-        list($newrecord->contenthash, $newrecord->filesize, $newfile) = $this->add_file_to_pool($pathname);
+        list($newrecord->contenthash, $newrecord->filesize, $newfile) = $this->add_file_to_pool($pathname, null, $newrecord);
 
         $newrecord->pathnamehash = $this->get_pathname_hash($newrecord->contextid, $newrecord->component, $newrecord->filearea, $newrecord->itemid, $newrecord->filepath, $newrecord->filename);
 
@@ -1432,7 +1434,7 @@ class file_storage {
         $newrecord->status       = empty($filerecord->status) ? 0 : $filerecord->status;
         $newrecord->sortorder    = $filerecord->sortorder;
 
-        list($newrecord->contenthash, $newrecord->filesize, $newfile) = $this->add_string_to_pool($content);
+        list($newrecord->contenthash, $newrecord->filesize, $newfile) = $this->add_string_to_pool($content, $newrecord);
         if (empty($filerecord->mimetype)) {
             $newrecord->mimetype = $this->filesystem->mimetype_from_hash($newrecord->contenthash, $newrecord->filename);
         } else {
@@ -1454,6 +1456,30 @@ class file_storage {
         $this->create_directory($newrecord->contextid, $newrecord->component, $newrecord->filearea, $newrecord->itemid, $newrecord->filepath, $newrecord->userid);
 
         return $this->get_file_instance($newrecord);
+    }
+
+    /**
+     * Synchronise stored file from file.
+     *
+     * @param stored_file $file Stored file to synchronise.
+     * @param string $path Path to the file to synchronise from.
+     * @param stdClass $filerecord The file record from the database.
+     */
+    public function synchronise_stored_file_from_file(stored_file $file, $path, $filerecord) {
+        list($contenthash, $filesize) = $this->add_file_to_pool($path, null, $filerecord);
+        $file->set_synchronized($contenthash, $filesize);
+    }
+
+    /**
+     * Synchronise stored file from string.
+     *
+     * @param stored_file $file Stored file to synchronise.
+     * @param string $content File content.
+     * @param stdClass $filerecord The file record from the database.
+     */
+    public function synchronise_stored_file_from_string(stored_file $file, $content, $filerecord) {
+        list($contenthash, $filesize) = $this->add_string_to_pool($content, $filerecord);
+        $file->set_synchronized($contenthash, $filesize);
     }
 
     /**
@@ -1551,7 +1577,7 @@ class file_storage {
 
         $existingfile = null;
         if (isset($filerecord->contenthash)) {
-            $existingfile = $DB->get_record('files', array('contenthash' => $filerecord->contenthash));
+            $existingfile = $DB->get_record('files', array('contenthash' => $filerecord->contenthash), '*', IGNORE_MULTIPLE);
         }
         if (!empty($existingfile)) {
             // There is an existing file already available.
@@ -1570,7 +1596,7 @@ class file_storage {
             } else {
                 // External file doesn't have content in moodle.
                 // So we create an empty file for it.
-                list($filerecord->contenthash, $filerecord->filesize, $newfile) = $this->add_string_to_pool(null);
+                list($filerecord->contenthash, $filerecord->filesize, $newfile) = $this->add_string_to_pool(null, $filerecord);
             }
         }
 
@@ -1759,10 +1785,12 @@ class file_storage {
      * Add file content to sha1 pool.
      *
      * @param string $pathname path to file
-     * @param string $contenthash sha1 hash of content if known (performance only)
+     * @param string|null $contenthash sha1 hash of content if known (performance only)
+     * @param stdClass|null $newrecord New file record
      * @return array (contenthash, filesize, newfile)
      */
-    public function add_file_to_pool($pathname, $contenthash = NULL) {
+    public function add_file_to_pool($pathname, $contenthash = null, $newrecord = null) {
+        $this->call_before_file_created_plugin_functions($newrecord, $pathname);
         return $this->filesystem->add_file_from_path($pathname, $contenthash);
     }
 
@@ -1772,8 +1800,25 @@ class file_storage {
      * @param string $content file content - binary string
      * @return array (contenthash, filesize, newfile)
      */
-    public function add_string_to_pool($content) {
+    public function add_string_to_pool($content, $newrecord = null) {
+        $this->call_before_file_created_plugin_functions($newrecord, null, $content);
         return $this->filesystem->add_file_from_string($content);
+    }
+
+    /**
+     * before_file_created hook.
+     *
+     * @param stdClass|null $newrecord New file record.
+     * @param string|null $pathname Path to file.
+     * @param string|null $content File content.
+     */
+    protected function call_before_file_created_plugin_functions($newrecord, $pathname = null, $content = null) {
+        $pluginsfunction = get_plugins_with_function('before_file_created');
+        foreach ($pluginsfunction as $plugintype => $plugins) {
+            foreach ($plugins as $pluginfunction) {
+                $pluginfunction($newrecord, ['pathname' => $pathname, 'content' => $content]);
+            }
+        }
     }
 
     /**
@@ -1786,6 +1831,15 @@ class file_storage {
      */
     public function xsendfile($contenthash) {
         return $this->filesystem->xsendfile($contenthash);
+    }
+
+    /**
+     * Returns true if filesystem is configured to support xsendfile.
+     *
+     * @return bool
+     */
+    public function supports_xsendfile() {
+        return $this->filesystem->supports_xsendfile();
     }
 
     /**
@@ -1958,6 +2012,7 @@ class file_storage {
         foreach ($rs as $filerecord) {
             $files[$filerecord->pathnamehash] = $this->get_file_instance($filerecord);
         }
+        $rs->close();
 
         return $files;
     }
@@ -2195,7 +2250,8 @@ class file_storage {
 
         // remove trash pool files once a day
         // if you want to disable purging of trash put $CFG->fileslastcleanup=time(); into config.php
-        if (empty($CFG->fileslastcleanup) or $CFG->fileslastcleanup < time() - 60*60*24) {
+        $filescleanupperiod = empty($CFG->filescleanupperiod) ? 86400 : $CFG->filescleanupperiod;
+        if (empty($CFG->fileslastcleanup) || ($CFG->fileslastcleanup < time() - $filescleanupperiod)) {
             require_once($CFG->libdir.'/filelib.php');
             // Delete files that are associated with a context that no longer exists.
             mtrace('Cleaning up files from deleted contexts... ', '');

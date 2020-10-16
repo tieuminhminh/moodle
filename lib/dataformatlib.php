@@ -54,10 +54,15 @@ function download_as_dataformat($filename, $dataformat, $columns, $iterator, $ca
     // Close the session so that the users other tabs in the same session are not blocked.
     \core\session\manager::write_close();
 
+    // If this file was requested from a form, then mark download as complete (before sending headers).
+    \core_form\util::form_download_complete();
+
     $format->set_filename($filename);
     $format->send_http_headers();
     // This exists to support all dataformats - see MDL-56046.
     if (method_exists($format, 'write_header')) {
+        error_log('The function write_header() does not support multiple sheets. In order to support multiple sheets you ' .
+            'must implement start_output() and start_sheet() and remove write_header() in your dataformat.');
         $format->write_header($columns);
     } else {
         $format->start_output();
@@ -75,6 +80,8 @@ function download_as_dataformat($filename, $dataformat, $columns, $iterator, $ca
     }
     // This exists to support all dataformats - see MDL-56046.
     if (method_exists($format, 'write_footer')) {
+        error_log('The function write_footer() does not support multiple sheets. In order to support multiple sheets you ' .
+            'must implement close_sheet() and close_output() and remove write_footer() in your dataformat.');
         $format->write_footer($columns);
     } else {
         $format->close_sheet($columns);

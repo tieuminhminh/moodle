@@ -35,6 +35,17 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 abstract class qtype_multichoice_renderer_base extends qtype_with_combined_feedback_renderer {
+
+    /**
+     * Method to generating the bits of output after question choices.
+     *
+     * @param question_attempt $qa The question attempt object.
+     * @param question_display_options $options controls what should and should not be displayed.
+     *
+     * @return string HTML output.
+     */
+    protected abstract function after_choices(question_attempt $qa, question_display_options $options);
+
     protected abstract function get_input_type();
 
     protected abstract function get_input_name(question_attempt $qa, $value);
@@ -93,11 +104,11 @@ abstract class qtype_multichoice_renderer_base extends qtype_with_combined_feedb
             }
             $radiobuttons[] = $hidden . html_writer::empty_tag('input', $inputattributes) .
                     html_writer::tag('label',
-                        $this->number_in_style($value, $question->answernumbering) .
+                        html_writer::span($this->number_in_style($value, $question->answernumbering), 'answernumber') .
                         $question->make_html_inline($question->format_text(
                                 $ans->answer, $ans->answerformat,
                                 $qa, 'question', 'answer', $ansid)),
-                    array('for' => $inputattributes['id'], 'class' => 'm-l-1'));
+                        array('for' => $inputattributes['id'], 'class' => 'ml-1'));
 
             // Param $options->suppresschoicefeedback is a hack specific to the
             // oumultiresponse question type. It would be good to refactor to
@@ -135,6 +146,8 @@ abstract class qtype_multichoice_renderer_base extends qtype_with_combined_feedb
                     array('class' => $classes[$key])) . "\n";
         }
         $result .= html_writer::end_tag('div'); // Answer.
+
+        $result .= $this->after_choices($qa, $options);
 
         $result .= html_writer::end_tag('div'); // Ablock.
 
@@ -252,6 +265,63 @@ class qtype_multichoice_single_renderer extends qtype_multichoice_renderer_base 
         }
         return $this->correct_choices($right);
     }
+
+    public function after_choices(question_attempt $qa, question_display_options $options) {
+        // Only load the clear choice feature if it's not read only.
+        if ($options->readonly) {
+            return '';
+        }
+
+        $question = $qa->get_question();
+        $response = $question->get_response($qa);
+        $hascheckedchoice = false;
+        foreach ($question->get_order($qa) as $value => $ansid) {
+            if ($question->is_choice_selected($response, $value)) {
+                $hascheckedchoice = true;
+                break;
+            }
+        }
+
+        $clearchoiceid = $this->get_input_id($qa, -1);
+        $clearchoicefieldname = $qa->get_qt_field_name('clearchoice');
+        $clearchoiceradioattrs = [
+            'type' => $this->get_input_type(),
+            'name' => $qa->get_qt_field_name('answer'),
+            'id' => $clearchoiceid,
+            'value' => -1,
+            'class' => 'sr-only',
+            'aria-hidden' => 'true'
+        ];
+        $clearchoicewrapperattrs = [
+            'id' => $clearchoicefieldname,
+            'class' => 'qtype_multichoice_clearchoice',
+        ];
+
+        // When no choice selected during rendering, then hide the clear choice option.
+        // We are using .sr-only and aria-hidden together so while the element is hidden
+        // from both the monitor and the screen-reader, it is still tabbable.
+        $linktabindex = 0;
+        if (!$hascheckedchoice && $response == -1) {
+            $clearchoicewrapperattrs['class'] .= ' sr-only';
+            $clearchoicewrapperattrs['aria-hidden'] = 'true';
+            $clearchoiceradioattrs['checked'] = 'checked';
+            $linktabindex = -1;
+        }
+        // Adds an hidden radio that will be checked to give the impression the choice has been cleared.
+        $clearchoiceradio = html_writer::empty_tag('input', $clearchoiceradioattrs);
+        $clearchoiceradio .= html_writer::tag('label', get_string('clearchoice', 'qtype_multichoice'),
+            ['for' => $clearchoiceid, 'role' => 'button', 'tabindex' => $linktabindex]);
+
+        // Now wrap the radio and label inside a div.
+        $result = html_writer::tag('div', $clearchoiceradio, $clearchoicewrapperattrs);
+
+        // Load required clearchoice AMD module.
+        $this->page->requires->js_call_amd('qtype_multichoice/clearchoice', 'init',
+            [$qa->get_outer_question_div_unique_id(), $clearchoicefieldname]);
+
+        return $result;
+    }
+
 }
 
 /**
@@ -262,6 +332,10 @@ class qtype_multichoice_single_renderer extends qtype_multichoice_renderer_base 
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qtype_multichoice_multi_renderer extends qtype_multichoice_renderer_base {
+    protected function after_choices(question_attempt $qa, question_display_options $options) {
+        return '';
+    }
+
     protected function get_input_type() {
         return 'checkbox';
     }

@@ -1,18 +1,6 @@
 MOODLE-SPECIFIC PEAR MODIFICATIONS
 ==================================
 
-Auth/RADIUS
-===========
-
-1/ Changed static call to correct alternative (MDL-38373):
-    - From: PEAR::loadExtension('radius'); (in global scope)
-    - To: $this->loadExtension('radius'); (in constructor)
-2/ Upgraded to version 1.1.0 (see MDL-51523).
-   Changes made to the lib/pear/Auth/RADIUS.php file that was downloaded.
-    - Added "require_once('PEAR.php')".
-    - Changed the 'Auth_RADIUS' class so that it extends the 'PEAR' class.
-    - Changed the function 'loadExtension' to public.
-
 XML/Parser
 =================
 1/ changed ereg_ to preg_
@@ -32,14 +20,12 @@ MDL-52826 - Remove onsubmit events pointing to the global validation functions a
             tag moved after the HTML
 MDL-50484 - _getPersistantData() returns id with _persistant prefixed to element id.
 MDL-55123 - corrected call to non-static functions in HTML_QuickForm to be PHP7.1-compliant
+MDL-60281 - replaced deprecated create_function() with lambda functions for PHP7.2 compatibility
 
 
 Pear
 ====
-Changed constructors in classes PEAR and PEAR_ERROR to be __construct(). This has
-been already changed upstream in 1.10.0, remove this line after upgrade.
+It was decided that we will not upgrade this library from upstream  any more, see MDL-52465
 
-
-Crypt/CHAP
-==========
-MDL-52285 - made all constructors PHP7 compatible
+Changed constructors in classes PEAR and PEAR_ERROR to be __construct().
+MDL-60281 - replaced deprecated function each() with foreach loop for PHP7.2 compatibility

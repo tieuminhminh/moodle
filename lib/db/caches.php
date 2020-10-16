@@ -127,6 +127,18 @@ $definitions = array(
         'staticacceleration' => true,
     ),
 
+    // Cache the course categories where the user has any enrolment and all categories that this user can manage.
+    'calendar_categories' => array(
+        'mode' => cache_store::MODE_SESSION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'invalidationevents' => array(
+            'changesincoursecat',
+            'changesincategoryenrolment',
+        ),
+        'ttl' => 900,
+    ),
+
     // Cache the capabilities list DB table. See get_all_capabilities in accesslib.
     'capabilities' => array(
         'mode' => cache_store::MODE_APPLICATION,
@@ -257,6 +269,15 @@ $definitions = array(
         'simpledata' => true,
     ),
 
+    // Cache system-wide role definitions.
+    'roledefs' => array(
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 30,
+    ),
+
     // Caches plugins existing functions by function name and file.
     // Set static acceleration size to 5 to load a few functions.
     'plugin_functions' => array(
@@ -303,6 +324,15 @@ $definitions = array(
         ),
     ),
 
+    // Caches contexts with insights.
+    'contextwithinsights' => array(
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 1
+    ),
+
     // Caches message processors.
     'message_processors_enabled' => array(
         'mode' => cache_store::MODE_APPLICATION,
@@ -312,10 +342,10 @@ $definitions = array(
         'staticaccelerationsize' => 3
     ),
 
-    // Caches the time of the last message between two users.
+    // Caches the time of the last message in a conversation.
     'message_time_last_message_between_users' => array(
         'mode' => cache_store::MODE_APPLICATION,
-        'simplekeys' => true, // The id of the sender and recipient is used.
+        'simplekeys' => true, // The conversation id is used.
         'simplevalues' => true,
         'datasource' => '\core_message\time_last_message_between_users',
     ),
@@ -352,6 +382,45 @@ $definitions = array(
         'mode' => cache_store::MODE_SESSION,
         'simplekeys' => true,
         'simpledata' => true,
-        'ttl' => 1800,
+        'ttl' => 1800
     ),
+
+    // Caches the first time we analysed models' analysables.
+    'modelfirstanalyses' => array(
+        'mode' => cache_store::MODE_REQUEST,
+        'simplekeys' => true,
+        'simpledata' => true,
+    ),
+
+    // Cache the list of portfolio instances for the logged in user
+    // in the portfolio_add_button constructor to avoid loading the
+    // same data multiple times.
+    'portfolio_add_button_portfolio_instances' => [
+        'mode' => cache_store::MODE_REQUEST,
+        'simplekeys' => true,
+        'staticacceleration' => true
+    ],
+
+    // Cache the user dates for courses set to relative dates mode.
+    'course_user_dates' => [
+        'mode' => cache_store::MODE_REQUEST,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true
+    ],
+
+    // Information generated during the calculation of indicators.
+    'calculablesinfo' => [
+        'mode' => cache_store::MODE_REQUEST,
+        'simplekeys' => false,
+        'simpledata' => false,
+    ],
+
+    // Cache the grade letters for faster retrival.
+    'grade_letters' => [
+        'mode'                   => cache_store::MODE_REQUEST,
+        'simplekeys'             => true,
+        'staticacceleration'     => true,
+        'staticaccelerationsize' => 100
+    ],
 );
